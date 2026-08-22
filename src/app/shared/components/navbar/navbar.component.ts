@@ -24,16 +24,16 @@ import { filter } from 'rxjs/operators';
         
         <!-- Caso 1: En Login o Registro -->
         @if (isAuthPage) {
-          <a routerLink="/" style="display: flex; align-items: center; gap: 6px; color: var(--primary); text-decoration: none; font-weight: 800; background-color: var(--bg-main); padding: 10px 20px; border-radius: 25px; border: 2px solid var(--primary); box-shadow: 0 4px 0px var(--primary); transition: all 0.2s;">
+          <a routerLink="/" class="btn-secondary">
             ← Volver
           </a>
         } 
         <!-- Caso 2: Sin Sesión fuera de Login/Registro -->
         @else if (!currentUser) {
-          <a routerLink="/login" style="color: var(--primary); text-decoration: none; font-weight: 700; padding: 10px 18px; border-radius: 25px; transition: all 0.2s;">
+          <a routerLink="/login" class="btn-ghost">
             Iniciar Sesión
           </a>
-          <a routerLink="/register" style="background-color: var(--accent); color: var(--primary); text-decoration: none; font-weight: 800; padding: 10px 22px; border-radius: 25px; border: 2px solid var(--primary); box-shadow: 0 4px 0px var(--primary); transition: all 0.2s;">
+          <a routerLink="/register" class="btn-primary">
             Registrarse
           </a>
         } 
@@ -43,7 +43,7 @@ import { filter } from 'rxjs/operators';
             <span style="font-size: 1.1rem;">👤</span>
             <span style="font-weight: 700; font-size: 0.95rem; color: var(--primary);">{{ currentUser.email }}</span>
           </div>
-          <button (click)="onLogout()" style="background-color: #ef4444; color: white; border: none; font-weight: 700; padding: 10px 18px; border-radius: 20px; cursor: pointer;">
+          <button (click)="onLogout()" class="btn-danger">
             Cerrar Sesión
           </button>
         }

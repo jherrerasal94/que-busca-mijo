@@ -1,22 +1,115 @@
-/* You can add global styles to this file, and also import other style files */
 :root {
   /* Paleta de Colores Principal */
-  --primary: #002B66;      /* Azul oscuro principal */
-  --accent: #64D500;       /* Verde brillante de acento */
-  --bg-main: #F4F8F1;      /* Fondo verde muy claro */
+  --primary: #002B66;
+  --accent: #64D500;
+  --bg-main: #F4F8F1;
 
-  /* Variantes útiles */
+  /* Variantes y Hover */
+  --primary-hover: #001f4d;
+  --accent-hover: #55b800;
   --bg-card: #FFFFFF;
   --border-light: #E2EBD8;
   --text-muted: #5577A6;
   --border-input: #CBD5E1;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
 }
 
-/* Opcional: Aplicar el fondo globalmente a todo el cuerpo */
 body {
   margin: 0;
   padding: 0;
   background-color: var(--bg-main);
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: var(--primary);
+}
+
+/* ==================== CLASES REUTILIZABLES PARA BOTONES ==================== */
+
+/* Botón Principal (Verde con sombra de borde) */
+.btn-primary {
+  background-color: var(--accent);
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 800;
+  padding: 10px 22px;
+  border-radius: 25px;
+  border: 2px solid var(--primary);
+  box-shadow: 0 4px 0px var(--primary);
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0px var(--primary);
+}
+
+.btn-primary:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0px var(--primary);
+}
+
+/* Botón Texto / Enlace simple */
+.btn-ghost {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 25px;
+  transition: all 0.2s ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ghost:hover {
+  background-color: rgba(0, 43, 102, 0.08);
+}
+
+/* Botón Volver / Secundario */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 800;
+  background-color: var(--bg-main);
+  padding: 10px 20px;
+  border-radius: 25px;
+  border: 2px solid var(--primary);
+  box-shadow: 0 4px 0px var(--primary);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-secondary:hover {
+  background-color: #e5f0dc;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0px var(--primary);
+}
+
+.btn-secondary:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0px var(--primary);
+}
+
+/* Botón Peligro (Cerrar sesión) */
+.btn-danger {
+  background-color: var(--danger);
+  color: white;
+  border: none;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-danger:hover {
+  background-color: var(--danger-hover);
+  transform: translateY(-1px);
 }
