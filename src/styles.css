@@ -1,1 +1,22 @@
 /* You can add global styles to this file, and also import other style files */
+:root {
+  /* Paleta de Colores Principal */
+  --primary: #002B66;      /* Azul oscuro principal */
+  --accent: #64D500;       /* Verde brillante de acento */
+  --bg-main: #F4F8F1;      /* Fondo verde muy claro */
+
+  /* Variantes útiles */
+  --bg-card: #FFFFFF;
+  --border-light: #E2EBD8;
+  --text-muted: #5577A6;
+  --border-input: #CBD5E1;
+}
+
+/* Opcional: Aplicar el fondo globalmente a todo el cuerpo */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-main);
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--primary);
+}
