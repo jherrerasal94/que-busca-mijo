@@ -27,12 +27,15 @@ export class AuthService {
   }
 
   // Registrar usuario
-  async signUp(email: string, pass: string) {
-    if (!this.supabase) return;
-    const { data, error } = await this.supabase.auth.signUp({ email, password: pass });
-    if (error) throw error;
-    return data;
-  }
+async signUp(email: string, password: string, metaData: Record<string, any>) {
+  return await this.supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: metaData // <- Pasa los metadatos al trigger de Supabase
+    }
+  });
+}
 
   // Iniciar sesión
   async signIn(email: string, pass: string) {
@@ -55,4 +58,8 @@ export class AuthService {
     const { data } = await this.supabase.auth.getUser();
     return data.user;
   }
+
+  getSupabaseClient() {
+  return this.supabase;
+}
 }
