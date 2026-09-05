@@ -7,11 +7,10 @@ import { NavbarComponent } from './shared/components/navbar/navbar.component';
   standalone: true,
   imports: [RouterOutlet, NavbarComponent],
   template: `
-    <!-- Navbar Global único -->
     <app-navbar />
-
-    <!-- Las vistas (Home, Login, Register) se cargan aquí -->
-    <router-outlet />
+    <main>
+      <router-outlet />
+    </main>
   `
 })
 export class AppComponent {}
