@@ -3,63 +3,70 @@ import { isPlatformBrowser } from '@angular/common';
 import { createClient, SupabaseClient, User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 
+// 🔥 1. Creamos un WebSocket falso para engañar a Supabase en el servidor (SSR)
+class DummyWebSocket {
+  constructor() {}
+  close() {}
+  send() {}
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private supabase!: SupabaseClient;
+  private supabase: SupabaseClient;
   private platformId = inject(PLATFORM_ID);
 
   constructor() {
-    // Solo inicializamos el cliente si estamos ejecutando en el navegador del usuario
-    if (isPlatformBrowser(this.platformId)) {
-      this.supabase = createClient(
-        environment.supabaseUrl, 
-        environment.supabaseKey
-      );
-    }
+    const isBrowser = isPlatformBrowser(this.platformId);
+
+    this.supabase = createClient(
+      environment.supabaseUrl, 
+      environment.supabaseKey,
+      {
+        auth: {
+          persistSession: isBrowser, 
+          autoRefreshToken: isBrowser,
+          detectSessionInUrl: isBrowser
+        },
+        // 🔥 2. Le decimos que use el Dummy solo si está en el servidor
+        realtime: {
+          transport: isBrowser ? undefined : (DummyWebSocket as any)
+        }
+      }
+    );
   }
 
-  // Escuchar cambios en la autenticación (login / logout)
   onAuthStateChange(callback: (event: AuthChangeEvent, session: Session | null) => void) {
-    if (!isPlatformBrowser(this.platformId) || !this.supabase) return;
+    if (!isPlatformBrowser(this.platformId)) return;
     return this.supabase.auth.onAuthStateChange(callback);
   }
 
-  // Registrar usuario
-async signUp(email: string, password: string, metaData: Record<string, any>) {
-  return await this.supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: metaData // <- Pasa los metadatos al trigger de Supabase
-    }
-  });
-}
+  async signUp(email: string, password: string, metaData: Record<string, any>) {
+    return await this.supabase.auth.signUp({
+      email,
+      password,
+      options: { data: metaData }
+    });
+  }
 
-  // Iniciar sesión
   async signIn(email: string, pass: string) {
-    if (!this.supabase) return;
     const { data, error } = await this.supabase.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
     return data;
   }
 
-  // Cerrar sesión
   async signOut() {
-    if (!this.supabase) return;
     const { error } = await this.supabase.auth.signOut();
     if (error) throw error;
   }
 
-  // Obtener usuario actual
   async getUser(): Promise<User | null> {
-    if (!this.supabase) return null;
     const { data } = await this.supabase.auth.getUser();
     return data.user;
   }
 
   getSupabaseClient() {
-  return this.supabase;
-}
+    return this.supabase;
+  }
 }
