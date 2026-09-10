@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { LikeService } from '../../core/services/like.service'; // 1. Importar el servicio de likes
 import { User } from '@supabase/supabase-js';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
@@ -109,7 +110,16 @@ export interface PublicacionConEmpresa {
                     } @else {
                       <div class="card-image-placeholder">🏷️</div>
                     }
-                    <button class="btn-favorite">♡</button>
+                    
+                    <!-- BOTÓN DE LIKE INTERactivo -->
+                    <button 
+                      class="btn-favorite" 
+                      [class.liked]="likesMap[pub.id].hasLiked"
+                      (click)="$event.stopPropagation(); onToggleLike(pub.id)"
+                      title="Dar Me gusta">
+                      {{ likesMap[pub.id].hasLiked ? '❤️' : '🤍' }}
+                    </button>
+
                     @if (pub.precio !== null) {
                       <div class="price-tag">&#36;{{ pub.precio | number:'1.0-2' }}</div>
                     }
@@ -120,7 +130,8 @@ export interface PublicacionConEmpresa {
                     <h3 class="card-title">{{ pub.servicio_producto }}</h3>
                     
                     <div class="card-meta">
-                      <span class="meta-item">⭐ 4.8 (128)</span>
+                      <!-- CONTADOR DE LIKES VISUAL -->
+                      <span class="meta-item">❤️ {{ likesMap[pub.id].total || 0 }} likes</span>
                       <span class="meta-item">📍 1.2 km</span>
                     </div>
                     
@@ -443,14 +454,23 @@ export interface PublicacionConEmpresa {
       right: 12px;
       background: rgba(255,255,255,0.9);
       border: none;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
       font-size: 1.2rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: transform 0.2s;
+    }
+
+    .btn-favorite:hover {
+      transform: scale(1.1);
+    }
+
+    .btn-favorite.liked {
+      background: #fee2e2;
     }
 
     .price-tag {
@@ -599,16 +619,20 @@ export interface PublicacionConEmpresa {
 })
 export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
+  private likeService = inject(LikeService); // Inyectamos el LikeService
 
   currentUser: User | null = null;
+  transeunteId: string = ''; // ID del transeúnte en la tabla transeuntes
   publicaciones: PublicacionConEmpresa[] = [];
   publicacionesFiltradas: PublicacionConEmpresa[] = [];
-  
+
   cargando = true;
   searchQuery = '';
   publicacionSeleccionada: PublicacionConEmpresa | null = null;
 
-  // Mock de categorías basado en el diseño
+  // Mapa para almacenar los likes por ID de publicación: { [pubId]: { total, hasLiked } }
+  likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
+
   categorias = [
     { nombre: 'Comida', icono: '🍔' },
     { nombre: 'Servicios', icono: '🔧' },
@@ -623,11 +647,35 @@ export class HomeComponent implements OnInit {
 
   async ngOnInit() {
     this.currentUser = await this.authService.getUser();
-    this.authService.onAuthStateChange((_event, session) => {
+
+    if (this.currentUser) {
+      await this.obtenerTranseunteId();
+    }
+
+    this.authService.onAuthStateChange(async (_event, session) => {
       this.currentUser = session ? session.user : null;
+      if (this.currentUser) {
+        await this.obtenerTranseunteId();
+      } else {
+        this.transeunteId = '';
+      }
     });
 
     await this.cargarPublicaciones();
+  }
+
+  // Obtiene el ID del transeúnte correspondiente al usuario logueado
+  async obtenerTranseunteId() {
+    if (!this.currentUser) return;
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('transeuntes')
+      .select('id')
+      .eq('id', this.currentUser.id)
+      .maybeSingle();
+
+    if (data) {
+      this.transeunteId = data.id;
+    }
   }
 
   async cargarPublicaciones() {
@@ -635,6 +683,7 @@ export class HomeComponent implements OnInit {
     const { data, error } = await this.authService.getSupabaseClient()
       .from('publicaciones')
       .select('*')
+      .eq('estado', 'activo') // <- Opcional pero recomendado para ocultar las inactivas del feed principal
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -642,8 +691,55 @@ export class HomeComponent implements OnInit {
     } else {
       this.publicaciones = (data as PublicacionConEmpresa[]) || [];
       this.publicacionesFiltradas = [...this.publicaciones];
+
+      // Inicializar o cargar los likes de cada publicación obtenida.
+      await this.cargarEstadoLikesParaTodas();
     }
     this.cargando = false;
+  }
+
+  // Carga el conteo y si el usuario actual le dio like a cada publicación
+  async cargarEstadoLikesParaTodas() {
+    for (const pub of this.publicaciones) {
+      const total = await this.likeService.contarLikes(pub.id);
+      let hasLiked = false;
+
+      if (this.transeunteId) {
+        hasLiked = await this.likeService.verificarSiDioLike(pub.id, this.transeunteId);
+      }
+
+      this.likesMap[pub.id] = { total, hasLiked };
+    }
+  }
+
+  // Acción al hacer clic en el botón de me gusta
+  async onToggleLike(publicacionId: string) {
+    if (!this.transeunteId) {
+      console.warn('Debes iniciar sesión como transeúnte para dar me gusta.');
+      // Opcional: Redirigir al login o mostrar alerta
+      return;
+    }
+
+    const estadoActual = this.likesMap[publicacionId] || { total: 0, hasLiked: false };
+
+    try {
+      // Alternar en Supabase a través del servicio
+      const nuevoEstadoLike = await this.likeService.toggleLike(
+        publicacionId,
+        this.transeunteId,
+        estadoActual.hasLiked
+      );
+
+      // Actualizar el mapa local instantáneamente
+      const nuevoTotal = nuevoEstadoLike ? estadoActual.total + 1 : Math.max(0, estadoActual.total - 1);
+
+      this.likesMap[publicacionId] = {
+        total: nuevoTotal,
+        hasLiked: nuevoEstadoLike
+      };
+    } catch (error) {
+      console.error('Error al procesar el like:', error);
+    }
   }
 
   filtrarPublicaciones() {
@@ -653,7 +749,7 @@ export class HomeComponent implements OnInit {
       return;
     }
 
-    this.publicacionesFiltradas = this.publicaciones.filter(pub => 
+    this.publicacionesFiltradas = this.publicaciones.filter(pub =>
       pub.servicio_producto.toLowerCase().includes(query) ||
       (pub.descripcion && pub.descripcion.toLowerCase().includes(query))
     );

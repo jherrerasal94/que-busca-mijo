@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
+import { LikeService } from '../../core/services/like.service';
 
 export interface Publicacion {
   id: string;
@@ -12,7 +13,7 @@ export interface Publicacion {
   foto_1: string | null;
   foto_2: string | null;
   foto_3: string | null;
-  estado?: string;
+  estado?: string; // 'activo' o 'inactivo'
   created_at: string;
 }
 
@@ -90,7 +91,7 @@ export interface Publicacion {
           </form>
         </div>
 
-        <!-- LISTADO DE PUBLICACIONES ACTIVAS -->
+        <!-- LISTADO DE PUBLICACIONES -->
         <div class="card list-card">
           <h3>Tus Publicaciones</h3>
 
@@ -101,7 +102,7 @@ export interface Publicacion {
           } @else {
             <div class="posts-list">
               @for (post of publicaciones; track post.id) {
-                <div class="post-item" [class.selected]="editingId === post.id">
+                <div class="post-item" [class.selected]="editingId === post.id" [class.inactivo]="post.estado === 'inactivo'">
                   <div class="thumb-container">
                     @if (post.foto_1) {
                       <img [src]="post.foto_1" [alt]="post.servicio_producto" class="post-thumb" />
@@ -111,22 +112,36 @@ export interface Publicacion {
                   </div>
                   
                   <div class="post-content">
-                    <h4>{{ post.servicio_producto }}</h4>
+                    <div class="title-row">
+                      <h4>{{ post.servicio_producto }}</h4>
+                      <span class="badge-estado" [class.activo]="post.estado !== 'inactivo'" [class.inactivo]="post.estado === 'inactivo'">
+                        {{ post.estado === 'inactivo' ? 'Inactivo' : 'Activo' }}
+                      </span>
+                    </div>
+
                     @if (post.precio) {
                       <span class="post-price">&#36;{{ post.precio | number:'1.0-2' }}</span>
                     }
                     <p class="post-desc">{{ post.descripcion }}</p>
-                    <span class="post-meta">
-                      📅 {{ post.created_at | date:'shortDate' }}
-                    </span>
+                    
+                    <div class="post-meta-row">
+                      <span class="post-meta">📅 {{ post.created_at | date:'shortDate' }}</span>
+                      <span class="post-likes">❤️ {{ likesCountMap[post.id] || 0 }} likes</span>
+                    </div>
                   </div>
 
                   <div class="action-buttons">
                     <button (click)="cargarEnFormulario(post)" class="btn-icon btn-edit" title="Editar">
                       ✏️
                     </button>
-                    <button (click)="eliminarPublicacion(post.id)" class="btn-icon btn-delete" title="Eliminar">
-                      🗑️
+                    <!-- BOTÓN PARA CAMBIAR ESTADO (INACTIVAR / ACTIVAR) -->
+                    <button 
+                      (click)="toggleEstadoPublicacion(post)" 
+                      class="btn-icon" 
+                      [class.btn-activate]="post.estado === 'inactivo'"
+                      [class.btn-deactivate]="post.estado !== 'inactivo'"
+                      [title]="post.estado === 'inactivo' ? 'Activar' : 'Desactivar'">
+                      {{ post.estado === 'inactivo' ? '✅' : '🚫' }}
                     </button>
                   </div>
                 </div>
@@ -158,22 +173,36 @@ export interface Publicacion {
     .btn-secondary:hover { background: #cbd5e1; }
     .full-width { width: 100%; }
     .posts-list { display: flex; flex-direction: column; gap: 12px; }
-    .post-item { display: flex; gap: 12px; align-items: center; border: 1px solid #f1f5f9; padding: 10px; border-radius: 8px; background: #fafafa; transition: border-color 0.2s; }
+    .post-item { display: flex; gap: 12px; align-items: center; border: 1px solid #f1f5f9; padding: 10px; border-radius: 8px; background: #fafafa; transition: all 0.2s; }
     .post-item.selected { border: 2px solid #0284c7; background: #f0f9ff; }
+    .post-item.inactivo { opacity: 0.6; background: #f8fafc; }
     .thumb-container { width: 60px; height: 60px; flex-shrink: 0; }
     .post-thumb { width: 100%; height: 100%; border-radius: 6px; object-fit: cover; }
     .no-thumb { width: 100%; height: 100%; background: #e2e8f0; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
     .post-content { flex: 1; }
+    .title-row { display: flex; justify-content: space-between; align-items: center; }
     .post-content h4 { margin: 0; font-size: 0.95rem; }
+    
+    .badge-estado { font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+    .badge-estado.activo { background: #dcfce7; color: #15803d; }
+    .badge-estado.inactivo { background: #f1f5f9; color: #64748b; }
+
     .post-price { font-weight: 800; color: #16a34a; font-size: 0.85rem; }
     .post-desc { margin: 4px 0; font-size: 0.85rem; color: #64748b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    
+    .post-meta-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
     .post-meta { font-size: 0.75rem; color: #94a3b8; font-weight: 600; }
+    .post-likes { font-size: 0.75rem; color: #e11d48; font-weight: 700; background: #ffe4e6; padding: 2px 6px; border-radius: 99px; }
+
     .action-buttons { display: flex; gap: 6px; }
     .btn-icon { border: none; padding: 8px; border-radius: 6px; cursor: pointer; }
     .btn-edit { background: #e0f2fe; }
     .btn-edit:hover { background: #bae6fd; }
-    .btn-delete { background: #fee2e2; }
-    .btn-delete:hover { background: #fca5a5; }
+    .btn-deactivate { background: #fee2e2; }
+    .btn-deactivate:hover { background: #fca5a5; }
+    .btn-activate { background: #dcfce7; }
+    .btn-activate:hover { background: #bbf7d0; }
+
     .error-banner { background: #fee2e2; color: #b91c1c; padding: 8px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 10px; }
     .empty-state { color: #94a3b8; font-style: italic; }
   `]
@@ -181,13 +210,14 @@ export interface Publicacion {
 export class GestionPublicacionesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
+  private likeService = inject(LikeService);
 
   publicaciones: Publicacion[] = [];
   loadingPosts = true;
   submitting = false;
   errorMessage: string | null = null;
   
-  // ID para determinar si estamos creando o editando
+  likesCountMap: { [key: string]: number } = {};
   editingId: string | null = null;
 
   postForm: FormGroup = this.fb.group({
@@ -203,7 +233,6 @@ export class GestionPublicacionesComponent implements OnInit {
     await this.cargarPublicaciones();
   }
 
-  /* Cargar publicaciones */
   async cargarPublicaciones() {
     this.loadingPosts = true;
     const user = await this.authService.getUser();
@@ -222,11 +251,18 @@ export class GestionPublicacionesComponent implements OnInit {
       console.error('Error al cargar publicaciones:', error);
     } else {
       this.publicaciones = (data as Publicacion[]) || [];
+      await this.cargarLikesDePublicaciones();
     }
     this.loadingPosts = false;
   }
 
-  /* Cargar datos en el formulario para editar */
+  async cargarLikesDePublicaciones() {
+    for (const post of this.publicaciones) {
+      const total = await this.likeService.contarLikes(post.id);
+      this.likesCountMap[post.id] = total;
+    }
+  }
+
   cargarEnFormulario(post: Publicacion) {
     this.editingId = post.id;
     this.errorMessage = null;
@@ -241,14 +277,12 @@ export class GestionPublicacionesComponent implements OnInit {
     });
   }
 
-  /* Cancelar la edición */
   cancelarEdicion() {
     this.editingId = null;
     this.postForm.reset();
     this.errorMessage = null;
   }
 
-  /* Crear o Editar según el estado de editingId */
   async onSubmit() {
     if (this.postForm.invalid) {
       this.errorMessage = 'Por favor ingresa el nombre del servicio o producto.';
@@ -280,17 +314,15 @@ export class GestionPublicacionesComponent implements OnInit {
     let error = null;
 
     if (this.editingId) {
-      // MODO EDICIÓN (UPDATE)
       const res = await this.authService.getSupabaseClient()
         .from('publicaciones')
         .update(payload)
         .eq('id', this.editingId);
       error = res.error;
     } else {
-      // MODO CREACIÓN (INSERT)
       const res = await this.authService.getSupabaseClient()
         .from('publicaciones')
-        .insert(payload);
+        .insert({ ...payload, estado: 'activo' });
       error = res.error;
     }
 
@@ -303,21 +335,21 @@ export class GestionPublicacionesComponent implements OnInit {
     this.submitting = false;
   }
 
-  /* Eliminar publicación */
-  async eliminarPublicacion(id: string) {
-    if (!confirm('¿Estás seguro de eliminar este registro?')) return;
+  /* Cambiar estado entre 'activo' e 'inactivo' (Soft Delete / Toggle) */
+  async toggleEstadoPublicacion(post: Publicacion) {
+    const nuevoEstado = post.estado === 'inactivo' ? 'activo' : 'inactivo';
+    const accionTexto = nuevoEstado === 'inactivo' ? 'desactivar' : 'activar';
+
+    if (!confirm(`¿Estás seguro de ${accionTexto} esta publicación?`)) return;
 
     const { error } = await this.authService.getSupabaseClient()
       .from('publicaciones')
-      .delete()
-      .eq('id', id);
+      .update({ estado: nuevoEstado, updated_at: new Date().toISOString() })
+      .eq('id', post.id);
 
     if (error) {
-      alert('Error al eliminar: ' + error.message);
+      alert('Error al cambiar el estado: ' + error.message);
     } else {
-      if (this.editingId === id) {
-        this.cancelarEdicion();
-      }
       await this.cargarPublicaciones();
     }
   }

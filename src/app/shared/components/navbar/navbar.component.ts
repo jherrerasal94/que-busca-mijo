@@ -83,6 +83,15 @@ import { AuthService } from '../../../core/services/auth.service';
                   <span>Inicio</span>
                 </a>
 
+                <!-- ENLACE PÚBLICO DE PLANES -->
+                <a routerLink="/planes" 
+                   routerLinkActive="active-item" 
+                   class="dropdown-item" 
+                   (click)="cerrarMenu()">
+                  <span class="item-icon">💎</span>
+                  <span>Planes para Empresas</span>
+                </a>
+
                 @if (user) {
                   <!-- Opción Exclusiva Empresa -->
                   @if (userRole === 'empresa') {
@@ -410,7 +419,7 @@ import { AuthService } from '../../../core/services/auth.service';
         height: 40px;
       }
       .menu-label {
-        display: none; /* Oculta el texto en pantallas muy pequeñas para optimizar espacio */
+        display: none;
       }
       .dropdown-panel {
         width: calc(100vw - 32px);
@@ -465,7 +474,6 @@ export class NavbarComponent implements OnInit {
     this.router.navigate(['/login']);
   }
 
-  /* Cierra el desplegable automáticamente si el usuario hace clic fuera del menú */
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
     if (!this.elementRef.nativeElement.contains(event.target)) {
