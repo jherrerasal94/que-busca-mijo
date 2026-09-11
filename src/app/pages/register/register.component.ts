@@ -1,9 +1,15 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { LocationService, Pais, Departamento, Ciudad } from '../../core/services/location.service';
+
+interface Plan {
+  id: string;
+  nombre: string;
+  costo: number;
+}
 
 @Component({
   selector: 'app-register',
@@ -170,6 +176,17 @@ import { LocationService, Pais, Departamento, Ciudad } from '../../core/services
             <!-- FORMULARIO EMPRESA -->
             @if (selectedRole === 'empresa') {
               <div class="form-group">
+                <label>Plan de Empresa a Solicitar *</label>
+                <select formControlName="plan_solicitado_id">
+                  <option value="">Selecciona un plan obligatoriamente</option>
+                  @for (plan of listaPlanes; track plan.id) {
+                    <option [value]="plan.id">{{ plan.nombre }} - $ {{ plan.costo | number:'1.0-2' }}</option>
+                  }
+                </select>
+                @if (isFieldInvalid('plan_solicitado_id')) { <span class="field-error">Debe seleccionar un plan.</span> }
+              </div>
+
+              <div class="form-group">
                 <label>Nombre de la Empresa *</label>
                 <input type="text" formControlName="nombre" placeholder="Mi Empresa S.A.S." />
                 @if (isFieldInvalid('nombre')) { <span class="field-error">Obligatorio.</span> }
@@ -309,16 +326,16 @@ export class RegisterComponent implements OnInit {
   private authService = inject(AuthService);
   private locationService = inject(LocationService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   selectedRole: 'transeunte' | 'empresa' = 'transeunte';
   loading = false;
   errorMessage: string | null = null;
   successMessage: string | null = null;
 
-  // Lista compartida de Países
+  listaPlanes: Plan[] = [];
   paises: Pais[] = [];
 
-  // Colecciones independientes
   deptosNacimiento: Departamento[] = [];
   ciudadesNacimiento: Ciudad[] = [];
   deptosResidencia: Departamento[] = [];
@@ -326,7 +343,6 @@ export class RegisterComponent implements OnInit {
   deptosEmpresa: Departamento[] = [];
   ciudadesEmpresa: Ciudad[] = [];
 
-  // Estados de carga por bloque
   loadingDeptosNac = false;
   loadingCiudadesNac = false;
   loadingDeptosRes = false;
@@ -338,24 +354,21 @@ export class RegisterComponent implements OnInit {
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(6)]],
     
-    // Transeúnte
     nombres: [''],
     apellidos: [''],
     telefono: [''],
     username: [''],
     fecha_nacimiento: [''],
     
-    // Ubicación Nacimiento
     pais_nacimiento_id: [''],
     depto_nacimiento_id: [{ value: '', disabled: true }],
     ciudad_nacimiento_id: [{ value: '', disabled: true }],
 
-    // Ubicación Residencia
     pais_residencia_id: [''],
     depto_residencia_id: [{ value: '', disabled: true }],
     ciudad_residencia_id: [{ value: '', disabled: true }],
     
-    // Empresa
+    plan_solicitado_id: [''],
     nombre: [''],
     alias: [''],
     nit: [''],
@@ -365,7 +378,6 @@ export class RegisterComponent implements OnInit {
     rep_telefono: [''],
     direccion: [''],
     
-    // Ubicación Empresa
     pais_empresa_id: [''],
     depto_empresa_id: [{ value: '', disabled: true }],
     ciudad_id: [{ value: '', disabled: true }]
@@ -373,66 +385,63 @@ export class RegisterComponent implements OnInit {
 
   async ngOnInit() {
     this.updateValidations();
-    
-    // 1. Cargar Países inicialmente
     this.paises = await this.locationService.getPaises();
+    await this.cargarPlanes();
 
-    // 2. Configurar cascadas independientes
+    this.route.queryParams.subscribe(async params => {
+      const planId = params['planSeleccionado'];
+      if (planId) {
+        this.selectedRole = 'empresa';
+        this.updateValidations();
+        this.registerForm.patchValue({ plan_solicitado_id: planId });
+      }
+    });
+
     this.setupLocationCascade(
-      'pais_nacimiento_id',
-      'depto_nacimiento_id',
-      'ciudad_nacimiento_id',
-      (deptos) => (this.deptosNacimiento = deptos),
-      (ciudades) => (this.ciudadesNacimiento = ciudades),
-      (loading) => (this.loadingDeptosNac = loading),
-      (loading) => (this.loadingCiudadesNac = loading)
+      'pais_nacimiento_id', 'depto_nacimiento_id', 'ciudad_nacimiento_id',
+      (deptos) => (this.deptosNacimiento = deptos), (ciudades) => (this.ciudadesNacimiento = ciudades),
+      (loading) => (this.loadingDeptosNac = loading), (loading) => (this.loadingCiudadesNac = loading)
     );
 
     this.setupLocationCascade(
-      'pais_residencia_id',
-      'depto_residencia_id',
-      'ciudad_residencia_id',
-      (deptos) => (this.deptosResidencia = deptos),
-      (ciudades) => (this.ciudadesResidencia = ciudades),
-      (loading) => (this.loadingDeptosRes = loading),
-      (loading) => (this.loadingCiudadesRes = loading)
+      'pais_residencia_id', 'depto_residencia_id', 'ciudad_residencia_id',
+      (deptos) => (this.deptosResidencia = deptos), (ciudades) => (this.ciudadesResidencia = ciudades),
+      (loading) => (this.loadingDeptosRes = loading), (loading) => (this.loadingCiudadesRes = loading)
     );
 
     this.setupLocationCascade(
-      'pais_empresa_id',
-      'depto_empresa_id',
-      'ciudad_id',
-      (deptos) => (this.deptosEmpresa = deptos),
-      (ciudades) => (this.ciudadesEmpresa = ciudades),
-      (loading) => (this.loadingDeptosEmp = loading),
-      (loading) => (this.loadingCiudadesEmp = loading)
+      'pais_empresa_id', 'depto_empresa_id', 'ciudad_id',
+      (deptos) => (this.deptosEmpresa = deptos), (ciudades) => (this.ciudadesEmpresa = ciudades),
+      (loading) => (this.loadingDeptosEmp = loading), (loading) => (this.loadingCiudadesEmp = loading)
     );
   }
 
-  /**
-   * Helper que conecta la cascada País -> Departamento -> Ciudad para un grupo específico de campos
-   */
+  async cargarPlanes() {
+    try {
+      const supabase = this.authService.getSupabaseClient();
+      const { data, error } = await supabase.from('planes').select('id, nombre, costo').order('costo', { ascending: true });
+      if (!error && data) {
+        this.listaPlanes = data;
+      }
+    } catch (err) {
+      console.error('Error al cargar planes en registro:', err);
+    }
+  }
+
   private setupLocationCascade(
-    countryControlName: string,
-    stateControlName: string,
-    cityControlName: string,
-    setStateList: (data: Departamento[]) => void,
-    setCityList: (data: Ciudad[]) => void,
-    setLoadingState: (loading: boolean) => void,
-    setLoadingCity: (loading: boolean) => void
+    countryControlName: string, stateControlName: string, cityControlName: string,
+    setStateList: (data: Departamento[]) => void, setCityList: (data: Ciudad[]) => void,
+    setLoadingState: (loading: boolean) => void, setLoadingCity: (loading: boolean) => void
   ) {
     const countryCtrl = this.registerForm.get(countryControlName);
     const stateCtrl = this.registerForm.get(stateControlName);
     const cityCtrl = this.registerForm.get(cityControlName);
 
-    // Cambio en País -> Cargar Departamentos
     countryCtrl?.valueChanges.subscribe(async (paisId) => {
-      setStateList([]);
-      setCityList([]);
+      setStateList([]); setCityList([]);
       stateCtrl?.setValue('', { emitEvent: false });
       cityCtrl?.setValue('', { emitEvent: false });
-      stateCtrl?.disable();
-      cityCtrl?.disable();
+      stateCtrl?.disable(); cityCtrl?.disable();
 
       if (paisId) {
         setLoadingState(true);
@@ -443,7 +452,6 @@ export class RegisterComponent implements OnInit {
       }
     });
 
-    // Cambio en Departamento -> Cargar Ciudades
     stateCtrl?.valueChanges.subscribe(async (deptoId) => {
       setCityList([]);
       cityCtrl?.setValue('', { emitEvent: false });
@@ -466,7 +474,7 @@ export class RegisterComponent implements OnInit {
 
   private updateValidations() {
     const transeunteRequired = ['nombres', 'apellidos', 'telefono', 'username', 'fecha_nacimiento'];
-    const empresaRequired = ['nombre', 'nit', 'rep_nombres', 'rep_apellidos', 'rep_telefono'];
+    const empresaRequired = ['nombre', 'nit', 'rep_nombres', 'rep_apellidos', 'rep_telefono', 'plan_solicitado_id'];
 
     if (this.selectedRole === 'transeunte') {
       transeunteRequired.forEach(f => this.registerForm.get(f)?.setValidators([Validators.required]));
@@ -497,13 +505,39 @@ export class RegisterComponent implements OnInit {
     this.loading = true;
     this.errorMessage = null;
 
-    const { email, username, nit } = this.registerForm.value;
+    const { email, username, nit, plan_solicitado_id } = this.registerForm.value;
 
     try {
+      // 1. Validar si el usuario/correo/NIT ya existe en la BD
       const exists = await this.checkUserExists(email!, username, nit);
       if (exists) {
         this.loading = false;
         return;
+      }
+
+      // 2. Si es empresa, verificamos si ya existe una solicitud previa activa en base al NIT ingresado
+      if (this.selectedRole === 'empresa' && nit) {
+        const supabase = this.authService.getSupabaseClient();
+        const { data: empresaExistente } = await supabase
+          .from('empresas')
+          .select('id')
+          .eq('nit', nit)
+          .maybeSingle();
+
+        if (empresaExistente) {
+          const { data: solicitudPrevia } = await supabase
+            .from('solicitudes_plan')
+            .select('estado_solicitud')
+            .eq('empresa_id', empresaExistente.id)
+            .in('estado_solicitud', ['pendiente', 'aprobado'])
+            .maybeSingle();
+
+          if (solicitudPrevia) {
+            this.errorMessage = `Ya existe una solicitud ${solicitudPrevia.estado_solicitud} para este NIT. No puedes crear múltiples solicitudes simultáneas.`;
+            this.loading = false;
+            return;
+          }
+        }
       }
 
       const v = this.registerForm.value;
@@ -535,10 +569,29 @@ export class RegisterComponent implements OnInit {
 
       if (response.error) {
         this.errorMessage = response.error.message;
-      } else if (response.data.session) {
-        this.router.navigate(['/']);
-      } else if (response.data.user) {
-        this.successMessage = '¡Registro completado! Revisa tu correo o inicia sesión.';
+      } else {
+        // Registrar la solicitud del plan si es empresa
+        if (this.selectedRole === 'empresa' && plan_solicitado_id) {
+          const supabase = this.authService.getSupabaseClient();
+          const empresaId = response.data.user?.id;
+
+          if (empresaId) {
+            await supabase.from('solicitudes_plan').insert({
+              empresa_id: empresaId,
+              plan_solicitado_id: plan_solicitado_id,
+              estado_solicitud: 'pendiente',
+              fecha_solicitud: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
+
+        if (response.data.session) {
+          this.router.navigate(['/']);
+        } else if (response.data.user) {
+          this.successMessage = '¡Registro completado! Revisa tu correo o inicia sesión.';
+        }
       }
     } catch (err: any) {
       this.errorMessage = 'Ocurrió un error inesperado al procesar el registro.';

@@ -1,0 +1,98 @@
+.plan-status-card {
+  margin-bottom: 30px;
+  border: 2px solid #84cc16 !important;
+  background: linear-gradient(to bottom, #ffffff, #fcfdfa);
+}
+
+.plan-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.badge-plan {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.btn-upgrade {
+  background: var(--accent, #64d500);
+  color: var(--primary, #002b66);
+  border: 2px solid var(--primary, #002b66);
+  padding: 10px 20px;
+  border-radius: 999px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 3px 0px var(--primary, #002b66);
+  transition: transform 0.1s ease;
+}
+
+.btn-upgrade:hover {
+  transform: translateY(-2px);
+}
+
+.plan-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.current-plan-box h4 {
+  color: var(--primary);
+  font-size: 1.3rem;
+  margin: 0 0 5px 0;
+  font-weight: 800;
+}
+
+.current-plan-box p {
+  color: var(--text-muted);
+  margin: 0 0 10px 0;
+  font-size: 0.95rem;
+}
+
+.plan-details-tags {
+  display: flex;
+  gap: 20px;
+  font-size: 0.9rem;
+  color: var(--primary);
+}
+
+.no-plan-text {
+  color: #eab308;
+  font-weight: 600;
+}
+
+.solicitud-alert-box {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 15px;
+  border-radius: 12px;
+  color: #1e40af;
+  font-size: 0.9rem;
+}
+
+.alert-icon {
+  font-size: 1.8rem;
+}
+
+.solicitud-alert-box strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.solicitud-alert-box p {
+  margin: 0;
+}

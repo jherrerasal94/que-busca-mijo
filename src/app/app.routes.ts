@@ -6,12 +6,16 @@ import { PerfilComponent } from './pages/perfil/perfil.component';
 import { GestionPublicacionesComponent } from './pages/gestion-publicaciones/gestion-publicaciones.component';
 import { AuthGuards } from './core/guards/auth.guard';
 import { PlanesComponent } from './pages/planes/planes.component';
+import { AdquirirPlanComponent } from './pages/adquirir-plan/adquirir-plan.component';
+import { GestionarPlanesComponent } from './pages/gestionar-planes/gestionar-planes.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },               // Página principal
   { path: 'login', component: LoginComponent },           // Página de Login
   { path: 'register', component: RegisterComponent },     // Página de Registro
   { path: 'planes', component: PlanesComponent },     // Página de Registro
+  { path: 'adquirir-plan', component: AdquirirPlanComponent },     // Página de Registro
+  { path: 'admin-planes', component: GestionarPlanesComponent },     // Página de Registro
   
   // Rutas Protegidas
   { 

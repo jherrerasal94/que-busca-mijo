@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 
 export interface Plan {
@@ -9,7 +10,7 @@ export interface Plan {
   created_at: string;
   descripcion: string | null;
   costo: number;
-  beneficios: any; // Puede ser texto o un array/JSON dependiendo de cómo lo guardes en Supabase
+  beneficios: any;
 }
 
 @Component({
@@ -234,6 +235,7 @@ export interface Plan {
 })
 export class PlanesComponent implements OnInit {
   private authService = inject(AuthService);
+  private router = inject(Router);
 
   planes: Plan[] = [];
   cargando = true;
@@ -247,7 +249,7 @@ export class PlanesComponent implements OnInit {
     const { data, error } = await this.authService.getSupabaseClient()
       .from('planes')
       .select('id, nombre, limite_publicaciones, created_at, descripcion, costo, beneficios')
-      .order('costo', { ascending: true }); // Ordenados del más económico al más costoso
+      .order('costo', { ascending: true });
 
     if (error) {
       console.error('Error al cargar los planes:', error);
@@ -257,10 +259,21 @@ export class PlanesComponent implements OnInit {
     this.cargando = false;
   }
 
-  seleccionarPlan(plan: Plan) {
-    // Aquí puedes manejar la lógica cuando el usuario haga clic en adquirir un plan
-    // (ej. redirigir al login si no está autenticado, o abrir una pasarela de pago / pasarela de suscripción)
-    console.log('Plan seleccionado:', plan);
-    alert(`Has seleccionado el plan: ${plan.nombre}`);
+  async seleccionarPlan(plan: Plan) {
+    try {
+      // Verificamos si hay un usuario con sesión activa en Supabase
+      const user = await this.authService.getUser();
+
+      if (user) {
+        // Si tiene sesión, lo llevamos a adquirir planes enviando opcionalmente el ID del plan por queryParams
+        this.router.navigate(['/adquirir-plan'], { queryParams: { plan: plan.id } });
+      } else {
+        // Si no tiene sesión, lo redirigimos al registro (o puedes cambiar '/registro' por '/login' según tu estructura)
+        this.router.navigate(['/register'], { queryParams: { planSeleccionado: plan.id } });
+      }
+    } catch (err) {
+      console.error('Error al validar la sesión del usuario:', err);
+      this.router.navigate(['/register']);
+    }
   }
 }

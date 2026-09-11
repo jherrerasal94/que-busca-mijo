@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../core/services/auth.service';
 import { LocationService, Pais, Departamento, Ciudad } from '../../core/services/location.service';
@@ -38,6 +39,51 @@ interface PlataformaSocial {
               </p>
             </div>
           </div>
+
+          <!-- ================= SECCIÓN DE PLAN EMPRESARIAL (SOLO EMPRESAS) ================= -->
+          @if (tipoUsuario === 'empresa') {
+            <div class="form-card plan-status-card">
+              <div class="plan-status-header">
+                <div>
+                  <span class="badge-plan">⚡ Suscripción y Membresía</span>
+                  <h3 class="section-subtitle-form" style="margin: 5px 0 0 0; border: none;">Tu Plan Actual</h3>
+                </div>
+                <button type="button" class="btn-upgrade" (click)="irAPlanes()">
+                  🚀 Actualizar / Cambiar Plan
+                </button>
+              </div>
+
+              @if (cargandoPlan) {
+                <p class="loading-plan">Consultando tu plan actual...</p>
+              } @else {
+                <div class="plan-info-grid">
+                  <div class="current-plan-box">
+                    @if (planActual) {
+                      <h4>{{ planActual.nombre }}</h4>
+                      <p>{{ planActual.descripcion || 'Sin descripción' }}</p>
+                      <div class="plan-details-tags">
+                        <span>📦 Límite: <strong>{{ planActual.limite_publicaciones === -1 ? 'Ilimitado' : planActual.limite_publicaciones }}</strong></span>
+                        <span>💰 Costo: <strong>$ {{ planActual.costo | number:'1.0-2' }}</strong></span>
+                      </div>
+                    } @else {
+                      <p class="no-plan-text">No tienes un plan activo asignado actualmente.</p>
+                    }
+                  </div>
+
+                  <!-- Alerta si tiene una solicitud en proceso de validación -->
+                  @if (solicitudPendiente) {
+                    <div class="solicitud-alert-box">
+                      <span class="alert-icon">⏳</span>
+                      <div>
+                        <strong>Solicitud en proceso</strong>
+                        <p>Has solicitado el plan <strong>{{ solicitudPendiente.planes?.nombre }}</strong>. Un administrador se pondrá en contacto contigo para validar tu pago y aprobarla.</p>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
 
           <!-- FORMULARIO -->
           <div class="form-card">
@@ -446,6 +492,113 @@ interface PlataformaSocial {
       margin: 0;
     }
 
+    /* ESTILOS NUEVOS PARA TARJETA DE PLAN Y SOLICITUDES */
+    .plan-status-card {
+      margin-bottom: 30px;
+      border: 2px solid #84cc16 !important;
+      background: linear-gradient(to bottom, #ffffff, #fcfdfa);
+    }
+
+    .plan-status-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      border-bottom: 2px solid #f1f5f9;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+
+    .badge-plan {
+      background-color: #fef3c7;
+      color: #92400e;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .btn-upgrade {
+      background: var(--accent, #64d500);
+      color: var(--primary, #002b66);
+      border: 2px solid var(--primary, #002b66);
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 3px 0px var(--primary, #002b66);
+      transition: transform 0.1s ease;
+    }
+
+    .btn-upgrade:hover {
+      transform: translateY(-2px);
+    }
+
+    .plan-info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .current-plan-box h4 {
+      color: var(--primary);
+      font-size: 1.3rem;
+      margin: 0 0 5px 0;
+      font-weight: 800;
+    }
+
+    .current-plan-box p {
+      color: var(--text-muted);
+      margin: 0 0 10px 0;
+      font-size: 0.95rem;
+    }
+
+    .plan-details-tags {
+      display: flex;
+      gap: 20px;
+      font-size: 0.9rem;
+      color: var(--primary);
+    }
+
+    .no-plan-text {
+      color: #eab308;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .loading-plan {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .solicitud-alert-box {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background-color: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 15px;
+      border-radius: 12px;
+      color: #1e40af;
+      font-size: 0.9rem;
+    }
+
+    .alert-icon {
+      font-size: 1.8rem;
+    }
+
+    .solicitud-alert-box strong {
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .solicitud-alert-box p {
+      margin: 0;
+    }
+
     .form-card {
       background: var(--bg-white);
       border: 1px solid #e2e8f0;
@@ -483,7 +636,6 @@ interface PlataformaSocial {
       align-items: flex-end;
     }
 
-    /* Estilos para la sección dinámica de redes sociales */
     .social-row {
       display: flex;
       gap: 12px;
@@ -757,6 +909,7 @@ export class PerfilComponent implements OnInit {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
   private locationService = inject(LocationService);
+  private router = inject(Router);
 
   perfilForm: FormGroup;
   cargando = true;
@@ -767,9 +920,14 @@ export class PerfilComponent implements OnInit {
   mensajeExito = '';
   mensajeError = '';
 
+  // Propiedades nuevas para planes y solicitudes
+  planActual: any = null;
+  solicitudPendiente: any = null;
+  cargandoPlan = false;
+
   listaPaises: Pais[] = [];
   listaPlataformasDisponibles: PlataformaSocial[] = [];
-  
+
   listaDepartamentos: Departamento[] = [];
   listaCiudades: Ciudad[] = [];
   listaDepsNacimiento: Departamento[] = [];
@@ -793,7 +951,7 @@ export class PerfilComponent implements OnInit {
       logo: [''],
       img_empresa_1: [''],
       img_empresa_2: [''],
-      
+
       redesSociales: this.fb.array([]),
 
       nombres: [''],
@@ -821,7 +979,6 @@ export class PerfilComponent implements OnInit {
   }
 
   async ngOnInit() {
-    // Aseguramos que carguen primero las plataformas antes de evaluar el perfil
     await this.cargarPlataformasSociales();
     this.listaPaises = await this.locationService.getPaises();
     await this.cargarDatosPerfil();
@@ -844,7 +1001,7 @@ export class PerfilComponent implements OnInit {
       console.error('Excepción al cargar plataformas sociales:', err);
     }
   }
-//
+
   agregarRedSocial(plataforma_id: string = '', url: string = '') {
     const redGroup = this.fb.group({
       plataforma_id: [plataforma_id, Validators.required],
@@ -919,6 +1076,9 @@ export class PerfilComponent implements OnInit {
         this.tipoUsuario = 'empresa';
         this.configurarValidadoresEmpresa();
 
+        // Cargar información del plan y solicitudes de la empresa
+        await this.cargarInformacionPlanEmpresa(this.userId);
+
         let paisId = '';
         let departamentoId = '';
         const ciudadId = empresaData.ciudad_id || '';
@@ -933,7 +1093,7 @@ export class PerfilComponent implements OnInit {
           }
         }
 
-        // Cargar Redes Sociales de la Empresa de forma explícita
+        // Cargar Redes Sociales de la Empresa
         this.redesSocialesFormArray.clear();
         const { data: redesData, error: redesError } = await supabase
           .from('redes_sociales')
@@ -1025,6 +1185,43 @@ export class PerfilComponent implements OnInit {
     }
   }
 
+  // Método para cargar datos específicos del plan de la empresa
+  async cargarInformacionPlanEmpresa(empresaId: string) {
+    this.cargandoPlan = true;
+    try {
+      const supabase = this.authService.getSupabaseClient();
+
+      const { data: empresaPlanData } = await supabase
+        .from('empresas')
+        .select('plan_id, planes(nombre, descripcion, costo, limite_publicaciones, beneficios)')
+        .eq('id', empresaId)
+        .single();
+
+      if (empresaPlanData && empresaPlanData.planes) {
+        this.planActual = empresaPlanData.planes;
+      }
+
+      const { data: solicitudData } = await supabase
+        .from('solicitudes_planes')
+        .select('*, planes(nombre)')
+        .eq('empresa_id', empresaId)
+        .eq('estado', 'pendiente')
+        .maybeSingle();
+
+      if (solicitudData) {
+        this.solicitudPendiente = solicitudData;
+      }
+    } catch (err) {
+      console.error('Error al cargar plan de la empresa:', err);
+    } finally {
+      this.cargandoPlan = false;
+    }
+  }
+
+  irAPlanes() {
+    this.router.navigate(['/adquirir-plan']);
+  }
+
   private configurarValidadoresEmpresa() {
     this.perfilForm.get('nombre')?.setValidators([Validators.required]);
     this.perfilForm.get('nombres')?.clearValidators();
@@ -1086,7 +1283,6 @@ export class PerfilComponent implements OnInit {
         });
         if (error) throw error;
 
-        // Limpiar e insertar nuevas redes sociales
         await supabase.from('redes_sociales').delete().eq('empresa_id', this.userId);
 
         if (v.redesSociales && v.redesSociales.length > 0) {
