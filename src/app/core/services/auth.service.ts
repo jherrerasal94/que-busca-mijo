@@ -5,9 +5,9 @@ import { environment } from '../../../environments/environment';
 
 // 🔥 1. Creamos un WebSocket falso para engañar a Supabase en el servidor (SSR)
 class DummyWebSocket {
-  constructor() {}
-  close() {}
-  send() {}
+  constructor() { }
+  close() { }
+  send() { }
 }
 
 @Injectable({
@@ -21,11 +21,11 @@ export class AuthService {
     const isBrowser = isPlatformBrowser(this.platformId);
 
     this.supabase = createClient(
-      environment.supabaseUrl, 
+      environment.supabaseUrl,
       environment.supabaseKey,
       {
         auth: {
-          persistSession: isBrowser, 
+          persistSession: isBrowser,
           autoRefreshToken: isBrowser,
           detectSessionInUrl: isBrowser
         },
@@ -68,5 +68,36 @@ export class AuthService {
 
   getSupabaseClient() {
     return this.supabase;
+  }
+
+  // En tu auth.service.ts
+  async obtenerRolUsuario(userId: string): Promise<'admin' | 'empresa' | 'transeunte' | null> {
+    const supabase = this.getSupabaseClient();
+
+    // 1. Verificar en administradores
+    const { data: admin } = await supabase
+      .from('administradores')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (admin) return 'admin';
+
+    // 2. Verificar en empresas
+    const { data: empresa } = await supabase
+      .from('empresas')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (empresa) return 'empresa';
+
+    // 3. Verificar en transeuntes
+    const { data: transeunte } = await supabase
+      .from('transeuntes')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (transeunte) return 'transeunte';
+
+    return null;
   }
 }

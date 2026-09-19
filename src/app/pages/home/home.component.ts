@@ -3,13 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { LikeService } from '../../core/services/like.service'; // 1. Importar el servicio de likes
+import { LikeService } from '../../core/services/like.service';
 import { User } from '@supabase/supabase-js';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
 export interface PublicacionConEmpresa {
   id: string;
   empresa_id: string;
+  categoria_id: string | null;
   servicio_producto: string;
   precio: number | null;
   descripcion: string | null;
@@ -18,11 +19,46 @@ export interface PublicacionConEmpresa {
   foto_3: string | null;
   created_at: string;
   empresa?: {
-    nombre_empresa?: string;
-    ciudad?: string;
-    departamento?: string;
-    telefono?: string;
+    nombre?: string;
+    direccion?: string;
+    ciudad_id?: string;
+    ciudad?: {
+      id?: string;
+      nombre?: string;
+      departamento?: {
+        id?: string;
+        nombre?: string;
+        pais?: {
+          id?: string;
+          nombre?: string;
+        };
+      };
+    };
   };
+}
+
+export interface Categoria {
+  id: string;
+  nombre: string;
+  icono?: string;
+  estado: string;
+}
+
+export interface Pais {
+  id: string;
+  nombre: string;
+}
+
+export interface Departamento {
+  id: string;
+  pais_id: string;
+  nombre: string;
+}
+
+export interface Ciudad {
+  id: string;
+  departamento_id: string;
+  nombre: string;
 }
 
 @Component({
@@ -48,7 +84,7 @@ export interface PublicacionConEmpresa {
             Rápido, seguro y sin intermediarios.
           </p>
 
-          <!-- BUSCADOR PRINCIPAL -->
+          <!-- BUSCADOR Y FILTROS DE UBICACIÓN -->
           <div class="search-container">
             <div class="search-bar">
               <span class="search-icon">🔍</span>
@@ -56,24 +92,55 @@ export interface PublicacionConEmpresa {
                 type="text" 
                 [(ngModel)]="searchQuery" 
                 (input)="filtrarPublicaciones()" 
-                placeholder="¿Qué servicio o producto buscas hoy? (Ej: Pizza, Plomería, Mantenimiento)"
+                placeholder="¿Qué servicio o producto buscas hoy?..."
                 class="search-input"
               />
-              @if (searchQuery) {
-                <button (click)="limpiarBuscador()" class="btn-clear">✕</button>
+              @if (searchQuery || categoriaSeleccionadaId || filtroPaisId || filtroDepartamentoId || filtroCiudadId) {
+                <button (click)="limpiarBuscador()" class="btn-clear" title="Limpiar filtros">✕</button>
               }
               <button class="btn-buscar">Buscar</button>
+            </div>
+
+            <!-- FILTROS GEOGRÁFICOS EN CASCADA -->
+            <div class="filters-row">
+              <select [(ngModel)]="filtroPaisId" (change)="onPaisChange(); filtrarPublicaciones()" class="filter-select">
+                <option value="">🌍 Todos los países</option>
+                @for (p of paises; track p.id) {
+                  <option [value]="p.id">{{ p.nombre }}</option>
+                }
+              </select>
+
+              <select [(ngModel)]="filtroDepartamentoId" (change)="onDepartamentoChange(); filtrarPublicaciones()" class="filter-select" [disabled]="!filtroPaisId">
+                <option value="">🗺️ Todos los departamentos</option>
+                @for (d of departamentosFiltrados; track d.id) {
+                  <option [value]="d.id">{{ d.nombre }}</option>
+                }
+              </select>
+
+              <select [(ngModel)]="filtroCiudadId" (change)="filtrarPublicaciones()" class="filter-select" [disabled]="!filtroDepartamentoId">
+                <option value="">🏙️ Todas las ciudades</option>
+                @for (c of ciudadesFiltradas; track c.id) {
+                  <option [value]="c.id">{{ c.nombre }}</option>
+                }
+              </select>
             </div>
           </div>
         </section>
 
-        <!-- CATEGORÍAS (MOCKUP VISUAL) -->
+        <!-- CATEGORÍAS DINÁMICAS -->
         <section class="categories-section">
           <div class="categories-list">
-            @for (cat of categorias; track cat.nombre) {
-              <div class="category-item">
-                <div class="category-icon" [class.ver-mas]="cat.nombre === 'Ver más'">
-                  {{ cat.icono }}
+            <div class="category-item" (click)="seleccionarCategoria(null)">
+              <div class="category-icon" [class.active-cat]="!categoriaSeleccionadaId">
+                🏠
+              </div>
+              <span class="category-name">Todas</span>
+            </div>
+
+            @for (cat of categorias; track cat.id) {
+              <div class="category-item" (click)="seleccionarCategoria(cat.id)">
+                <div class="category-icon" [class.active-cat]="categoriaSeleccionadaId === cat.id">
+                  {{ cat.icono || '📁' }}
                 </div>
                 <span class="category-name">{{ cat.nombre }}</span>
               </div>
@@ -86,9 +153,10 @@ export interface PublicacionConEmpresa {
           <div class="section-header">
             <div>
               <h2 class="section-title">🛍️ Ofertas cerca de ti</h2>
-              <p class="section-subtitle">Descubre lo mejor de los negocios de tu región.</p>
+              <p class="section-subtitle">
+                Descubre lo mejor de los negocios de tu región seleccionada.
+              </p>
             </div>
-            <a href="#" class="view-all-link">Ver todas las ofertas ></a>
           </div>
 
           @if (cargando) {
@@ -97,13 +165,12 @@ export interface PublicacionConEmpresa {
             <div class="empty-state">
               <span class="empty-icon">📦</span>
               <h3>No se encontraron publicaciones</h3>
-              <p>Intenta con otros términos de búsqueda.</p>
+              <p>Intenta con otros términos, cambia de categoría o amplía tu ubicación.</p>
             </div>
           } @else {
             <div class="cards-grid">
               @for (pub of publicacionesFiltradas; track pub.id) {
                 <div class="card" (click)="abrirModal(pub)">
-                  <!-- Imagen y Overlays -->
                   <div class="card-image-container">
                     @if (pub.foto_1) {
                       <img [src]="pub.foto_1" [alt]="pub.servicio_producto" class="card-image" />
@@ -111,13 +178,12 @@ export interface PublicacionConEmpresa {
                       <div class="card-image-placeholder">🏷️</div>
                     }
                     
-                    <!-- BOTÓN DE LIKE INTERactivo -->
                     <button 
                       class="btn-favorite" 
-                      [class.liked]="likesMap[pub.id].hasLiked"
+                      [class.liked]="likesMap[pub.id]?.hasLiked"
                       (click)="$event.stopPropagation(); onToggleLike(pub.id)"
                       title="Dar Me gusta">
-                      {{ likesMap[pub.id].hasLiked ? '❤️' : '🤍' }}
+                      {{ likesMap[pub.id]?.hasLiked ? '❤️' : '🤍' }}
                     </button>
 
                     @if (pub.precio !== null) {
@@ -125,17 +191,19 @@ export interface PublicacionConEmpresa {
                     }
                   </div>
 
-                  <!-- Info de la Tarjeta -->
                   <div class="card-content">
                     <h3 class="card-title">{{ pub.servicio_producto }}</h3>
+
+                    @if (pub.categoria_id) {
+                      <span class="card-category-badge">📁 {{ obtenerNombreCategoria(pub.categoria_id) }}</span>
+                    }
                     
                     <div class="card-meta">
-                      <!-- CONTADOR DE LIKES VISUAL -->
-                      <span class="meta-item">❤️ {{ likesMap[pub.id].total || 0 }} likes</span>
-                      <span class="meta-item">📍 1.2 km</span>
+                      <span class="meta-item">❤️ {{ likesMap[pub.id]?.total || 0 }} likes</span>
+                      <span class="meta-item">📍 {{ pub.empresa?.ciudad?.nombre || 'Región' }}</span>
                     </div>
                     
-                    <p class="business-name">{{ pub.empresa?.nombre_empresa || 'Empresa Local' }}</p>
+                    <p class="business-name">🏢 {{ pub.empresa?.nombre || 'Empresa Local' }}</p>
                     
                     <button class="btn-outline">
                       Ver detalle ➔
@@ -187,6 +255,13 @@ export interface PublicacionConEmpresa {
             <button class="btn-close-modal" (click)="cerrarModal()">✕</button>
             
             <h2 class="modal-title">{{ publicacionSeleccionada.servicio_producto }}</h2>
+            <p class="business-name" style="margin-bottom: 8px;">🏢 {{ publicacionSeleccionada.empresa?.nombre || 'Empresa Local' }}</p>
+            <p class="text-muted" style="font-size: 0.9rem; margin-top:0;">
+              📍 {{ publicacionSeleccionada.empresa?.ciudad?.nombre }}, 
+              {{ publicacionSeleccionada.empresa?.ciudad?.departamento?.nombre }}, 
+              {{ publicacionSeleccionada.empresa?.ciudad?.departamento?.pais?.nombre }}
+            </p>
+
             @if (publicacionSeleccionada.precio !== null) {
               <div class="modal-price">&#36;{{ publicacionSeleccionada.precio | number:'1.0-2' }}</div>
             }
@@ -273,10 +348,13 @@ export interface PublicacionConEmpresa {
       line-height: 1.5;
     }
 
-    /* BUSCADOR */
+    /* BUSCADOR Y FILTROS */
     .search-container {
-      max-width: 700px;
+      max-width: 750px;
       margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
     }
 
     .search-bar {
@@ -329,6 +407,29 @@ export interface PublicacionConEmpresa {
       margin-right: 10px;
     }
 
+    .filters-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .filter-select {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.9rem;
+      color: var(--text-main);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .filter-select:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+
     /* CATEGORÍAS */
     .categories-section {
       margin-bottom: 50px;
@@ -339,7 +440,7 @@ export interface PublicacionConEmpresa {
     .categories-list {
       display: flex;
       justify-content: center;
-      gap: 30px;
+      gap: 20px;
       min-width: max-content;
       margin: 0 auto;
     }
@@ -348,7 +449,7 @@ export interface PublicacionConEmpresa {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       cursor: pointer;
       transition: transform 0.2s;
     }
@@ -366,15 +467,17 @@ export interface PublicacionConEmpresa {
       align-items: center;
       justify-content: center;
       font-size: 1.8rem;
+      border: 2px solid transparent;
+      transition: all 0.2s;
     }
 
-    .category-icon.ver-mas {
-      background: var(--primary);
-      color: var(--bg-white);
+    .category-icon.active-cat {
+      border-color: var(--primary);
+      background: #e0f2fe;
     }
 
     .category-name {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 700;
       color: var(--primary);
     }
@@ -397,13 +500,6 @@ export interface PublicacionConEmpresa {
       color: var(--text-muted);
       margin: 0;
       font-size: 0.95rem;
-    }
-
-    .view-all-link {
-      color: #65a30d;
-      font-weight: 700;
-      text-decoration: none;
-      font-size: 0.9rem;
     }
 
     .cards-grid {
@@ -490,13 +586,24 @@ export interface PublicacionConEmpresa {
     }
 
     .card-title {
-      margin: 0 0 8px 0;
+      margin: 0 0 6px 0;
       color: var(--primary);
       font-size: 1.1rem;
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .card-category-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #0369a1;
+      background: #e0f2fe;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-bottom: 8px;
     }
 
     .card-meta {
@@ -593,7 +700,7 @@ export interface PublicacionConEmpresa {
       width: 36px; height: 36px; font-weight: bold; cursor: pointer;
     }
 
-    .modal-title { color: var(--primary); font-size: 1.6rem; margin: 0 0 10px 0; padding-right: 40px; }
+    .modal-title { color: var(--primary); font-size: 1.6rem; margin: 0 0 4px 0; padding-right: 40px; }
     .modal-price { font-size: 1.5rem; font-weight: 900; color: #4eb200; margin-bottom: 16px; }
     .modal-gallery { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 20px; }
     .modal-gallery img { height: 200px; border-radius: 12px; object-fit: cover; }
@@ -614,36 +721,36 @@ export interface PublicacionConEmpresa {
       .btn-buscar { padding: 10px 20px; }
       .categories-list { justify-content: flex-start; }
       .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .filters-row { grid-template-columns: 1fr; }
     }
   `]
 })
 export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
-  private likeService = inject(LikeService); // Inyectamos el LikeService
+  private likeService = inject(LikeService);
 
   currentUser: User | null = null;
-  transeunteId: string = ''; // ID del transeúnte en la tabla transeuntes
+  transeunteId: string = '';
   publicaciones: PublicacionConEmpresa[] = [];
   publicacionesFiltradas: PublicacionConEmpresa[] = [];
+  
+  categorias: Categoria[] = [];
+  paises: Pais[] = [];
+  departamentos: Departamento[] = [];
+  departamentosFiltrados: Departamento[] = [];
+  ciudades: Ciudad[] = [];
+  ciudadesFiltradas: Ciudad[] = [];
 
   cargando = true;
   searchQuery = '';
+  categoriaSeleccionadaId: string | null = null;
+  
+  filtroPaisId = '';
+  filtroDepartamentoId = '';
+  filtroCiudadId = '';
+
   publicacionSeleccionada: PublicacionConEmpresa | null = null;
-
-  // Mapa para almacenar los likes por ID de publicación: { [pubId]: { total, hasLiked } }
   likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
-
-  categorias = [
-    { nombre: 'Comida', icono: '🍔' },
-    { nombre: 'Servicios', icono: '🔧' },
-    { nombre: 'Productos', icono: '🛍️' },
-    { nombre: 'Belleza', icono: '✂️' },
-    { nombre: 'Automotriz', icono: '🚗' },
-    { nombre: 'Hogar', icono: '🏠' },
-    { nombre: 'Tecnología', icono: '💻' },
-    { nombre: 'Eventos', icono: '🎉' },
-    { nombre: 'Ver más', icono: '➔' }
-  ];
 
   async ngOnInit() {
     this.currentUser = await this.authService.getUser();
@@ -661,13 +768,14 @@ export class HomeComponent implements OnInit {
       }
     });
 
+    await this.cargarCatalogosGeograficos();
+    await this.cargarCategorias();
     await this.cargarPublicaciones();
   }
 
-  // Obtiene el ID del transeúnte correspondiente al usuario logueado
   async obtenerTranseunteId() {
     if (!this.currentUser) return;
-    const { data, error } = await this.authService.getSupabaseClient()
+    const { data } = await this.authService.getSupabaseClient()
       .from('transeuntes')
       .select('id')
       .eq('id', this.currentUser.id)
@@ -678,27 +786,94 @@ export class HomeComponent implements OnInit {
     }
   }
 
+  async cargarCatalogosGeograficos() {
+    const supabase = this.authService.getSupabaseClient();
+
+    const resPaises = await supabase.from('paises').select('id, nombre').order('nombre');
+    this.paises = resPaises.data || [];
+
+    const resDepts = await supabase.from('departamentos').select('id, pais_id, nombre').order('nombre');
+    this.departamentos = resDepts.data || [];
+
+    const resCiudades = await supabase.from('ciudades').select('id, departamento_id, nombre').order('nombre');
+    this.ciudades = resCiudades.data || [];
+  }
+
+  onPaisChange() {
+    this.filtroDepartamentoId = '';
+    this.filtroCiudadId = '';
+    this.ciudadesFiltradas = [];
+
+    if (this.filtroPaisId) {
+      this.departamentosFiltrados = this.departamentos.filter(d => d.pais_id === this.filtroPaisId);
+    } else {
+      this.departamentosFiltrados = [];
+    }
+  }
+
+  onDepartamentoChange() {
+    this.filtroCiudadId = '';
+    if (this.filtroDepartamentoId) {
+      this.ciudadesFiltradas = this.ciudades.filter(c => c.departamento_id === this.filtroDepartamentoId);
+    } else {
+      this.ciudadesFiltradas = [];
+    }
+  }
+
+  async cargarCategorias() {
+    const { data } = await this.authService.getSupabaseClient()
+      .from('categorias')
+      .select('id, nombre, icono, estado')
+      .eq('estado', 'activo')
+      .order('nombre', { ascending: true });
+
+    this.categorias = (data as Categoria[]) || [];
+  }
+
+  obtenerNombreCategoria(categoriaId: string): string {
+    const cat = this.categorias.find(c => c.id === categoriaId);
+    return cat ? `${cat.icono || ''} ${cat.nombre}` : 'Categoría';
+  }
+
   async cargarPublicaciones() {
     this.cargando = true;
+    
+    // Consulta multinivel partiendo correctamente desde la empresa hacia la ciudad, departamento y país
     const { data, error } = await this.authService.getSupabaseClient()
       .from('publicaciones')
-      .select('*')
-      .eq('estado', 'activo') // <- Opcional pero recomendado para ocultar las inactivas del feed principal
+      .select(`
+        *,
+        empresa:empresas (
+          nombre,
+          direccion,
+          ciudad_id,
+          ciudad:ciudades (
+            id,
+            nombre,
+            departamento:departamentos (
+              id,
+              nombre,
+              pais:paises (
+                id,
+                nombre
+              )
+            )
+          )
+        )
+      `)
+      .eq('estado', 'activo')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error al cargar publicaciones:', error);
+      console.error('Error al cargar publicaciones con ubicación de empresa:', error);
     } else {
       this.publicaciones = (data as PublicacionConEmpresa[]) || [];
       this.publicacionesFiltradas = [...this.publicaciones];
-
-      // Inicializar o cargar los likes de cada publicación obtenida.
       await this.cargarEstadoLikesParaTodas();
     }
     this.cargando = false;
   }
 
-  // Carga el conteo y si el usuario actual le dio like a cada publicación
   async cargarEstadoLikesParaTodas() {
     for (const pub of this.publicaciones) {
       const total = await this.likeService.contarLikes(pub.id);
@@ -712,25 +887,21 @@ export class HomeComponent implements OnInit {
     }
   }
 
-  // Acción al hacer clic en el botón de me gusta
   async onToggleLike(publicacionId: string) {
     if (!this.transeunteId) {
       console.warn('Debes iniciar sesión como transeúnte para dar me gusta.');
-      // Opcional: Redirigir al login o mostrar alerta
       return;
     }
 
     const estadoActual = this.likesMap[publicacionId] || { total: 0, hasLiked: false };
 
     try {
-      // Alternar en Supabase a través del servicio
       const nuevoEstadoLike = await this.likeService.toggleLike(
         publicacionId,
         this.transeunteId,
         estadoActual.hasLiked
       );
 
-      // Actualizar el mapa local instantáneamente
       const nuevoTotal = nuevoEstadoLike ? estadoActual.total + 1 : Math.max(0, estadoActual.total - 1);
 
       this.likesMap[publicacionId] = {
@@ -744,19 +915,41 @@ export class HomeComponent implements OnInit {
 
   filtrarPublicaciones() {
     const query = this.searchQuery.toLowerCase().trim();
-    if (!query) {
-      this.publicacionesFiltradas = [...this.publicaciones];
-      return;
-    }
 
-    this.publicacionesFiltradas = this.publicaciones.filter(pub =>
-      pub.servicio_producto.toLowerCase().includes(query) ||
-      (pub.descripcion && pub.descripcion.toLowerCase().includes(query))
-    );
+    this.publicacionesFiltradas = this.publicaciones.filter(pub => {
+      const cumpleQuery = !query || 
+        pub.servicio_producto.toLowerCase().includes(query) ||
+        (pub.descripcion && pub.descripcion.toLowerCase().includes(query)) ||
+        (pub.empresa?.nombre && pub.empresa.nombre.toLowerCase().includes(query)) ||
+        (pub.empresa?.ciudad?.nombre && pub.empresa.ciudad.nombre.toLowerCase().includes(query));
+
+      const cumpleCategoria = !this.categoriaSeleccionadaId || pub.categoria_id === this.categoriaSeleccionadaId;
+
+      const ciudadObj = pub.empresa?.ciudad;
+      const deptoObj = ciudadObj?.departamento;
+      const paisObj = deptoObj?.pais;
+
+      const cumplePais = !this.filtroPaisId || paisObj?.id === this.filtroPaisId;
+      const cumpleDepto = !this.filtroDepartamentoId || deptoObj?.id === this.filtroDepartamentoId;
+      const cumpleCiudad = !this.filtroCiudadId || ciudadObj?.id === this.filtroCiudadId;
+
+      return cumpleQuery && cumpleCategoria && cumplePais && cumpleDepto && cumpleCiudad;
+    });
+  }
+
+  seleccionarCategoria(categoriaId: string | null) {
+    this.categoriaSeleccionadaId = categoriaId;
+    this.filtrarPublicaciones();
   }
 
   limpiarBuscador() {
     this.searchQuery = '';
+    this.categoriaSeleccionadaId = null;
+    this.filtroPaisId = '';
+    this.filtroDepartamentoId = '';
+    this.filtroCiudadId = '';
+    this.departamentosFiltrados = [];
+    this.ciudadesFiltradas = [];
     this.filtrarPublicaciones();
   }
 

@@ -8,6 +8,7 @@ export interface Publicacion {
   id: string;
   empresa_id: string;
   servicio_producto: string;
+  categoria_id?: string | null;
   precio: number | null;
   descripcion: string | null;
   foto_1: string | null;
@@ -15,6 +16,13 @@ export interface Publicacion {
   foto_3: string | null;
   estado?: string; // 'activo' o 'inactivo'
   created_at: string;
+}
+
+export interface Categoria {
+  id: string;
+  nombre: string;
+  icono?: string;
+  estado: string;
 }
 
 @Component({
@@ -43,6 +51,17 @@ export interface Publicacion {
             <div class="form-group">
               <label>Servicio o Producto *</label>
               <input type="text" formControlName="servicio_producto" placeholder="Ej: Mantenimiento Preventivo / Pizza Familiar" />
+            </div>
+
+            <!-- SELECCIÓN DE CATEGORÍA -->
+            <div class="form-group">
+              <label>Categoría *</label>
+              <select formControlName="categoria_id">
+                <option [value]="null" disabled>Selecciona una categoría...</option>
+                @for (cat of categorias; track cat.id) {
+                  <option [value]="cat.id">{{ cat.icono || '📁' }} {{ cat.nombre }}</option>
+                }
+              </select>
             </div>
 
             <div class="form-group">
@@ -119,6 +138,11 @@ export interface Publicacion {
                       </span>
                     </div>
 
+                    <!-- MOSTRAR NOMBRE DE LA CATEGORÍA SI EXISTE -->
+                    @if (post.categoria_id) {
+                      <span class="post-category">📁 {{ obtenerNombreCategoria(post.categoria_id) }}</span>
+                    }
+
                     @if (post.precio) {
                       <span class="post-price">&#36;{{ post.precio | number:'1.0-2' }}</span>
                     }
@@ -164,7 +188,7 @@ export interface Publicacion {
     h3 { margin-top: 0; color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 16px; }
     .form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
     label { font-size: 0.85rem; font-weight: 700; color: #334155; }
-    input, textarea { padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9rem; }
+    input, select, textarea { padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-size: 0.9rem; background: #fff; }
     .section-title { font-size: 0.85rem; font-weight: 800; color: #0284c7; margin: 14px 0 8px 0; }
     .actions-group { display: flex; gap: 10px; margin-top: 10px; }
     .btn-primary { background: #0284c7; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; }
@@ -187,7 +211,8 @@ export interface Publicacion {
     .badge-estado.activo { background: #dcfce7; color: #15803d; }
     .badge-estado.inactivo { background: #f1f5f9; color: #64748b; }
 
-    .post-price { font-weight: 800; color: #16a34a; font-size: 0.85rem; }
+    .post-category { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #0369a1; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; margin: 3px 0; }
+    .post-price { font-weight: 800; color: #16a34a; font-size: 0.85rem; display: block; }
     .post-desc { margin: 4px 0; font-size: 0.85rem; color: #64748b; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     
     .post-meta-row { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
@@ -213,6 +238,7 @@ export class GestionPublicacionesComponent implements OnInit {
   private likeService = inject(LikeService);
 
   publicaciones: Publicacion[] = [];
+  categorias: Categoria[] = [];
   loadingPosts = true;
   submitting = false;
   errorMessage: string | null = null;
@@ -222,6 +248,7 @@ export class GestionPublicacionesComponent implements OnInit {
 
   postForm: FormGroup = this.fb.group({
     servicio_producto: ['', Validators.required],
+    categoria_id: [null, Validators.required],
     precio: [null],
     descripcion: [''],
     foto_1: [''],
@@ -230,7 +257,27 @@ export class GestionPublicacionesComponent implements OnInit {
   });
 
   async ngOnInit() {
+    await this.cargarCategorias();
     await this.cargarPublicaciones();
+  }
+
+  async cargarCategorias() {
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('categorias')
+      .select('id, nombre, icono, estado')
+      .eq('estado', 'activo')
+      .order('nombre', { ascending: true });
+
+    if (error) {
+      console.error('Error al cargar categorías:', error);
+    } else {
+      this.categorias = (data as Categoria[]) || [];
+    }
+  }
+
+  obtenerNombreCategoria(categoriaId: string): string {
+    const cat = this.categorias.find(c => c.id === categoriaId);
+    return cat ? `${cat.icono || ''} ${cat.nombre}` : 'Sin categoría';
   }
 
   async cargarPublicaciones() {
@@ -269,6 +316,7 @@ export class GestionPublicacionesComponent implements OnInit {
 
     this.postForm.patchValue({
       servicio_producto: post.servicio_producto,
+      categoria_id: post.categoria_id || null,
       precio: post.precio,
       descripcion: post.descripcion || '',
       foto_1: post.foto_1 || '',
@@ -279,13 +327,13 @@ export class GestionPublicacionesComponent implements OnInit {
 
   cancelarEdicion() {
     this.editingId = null;
-    this.postForm.reset();
+    this.postForm.reset({ categoria_id: null });
     this.errorMessage = null;
   }
 
   async onSubmit() {
     if (this.postForm.invalid) {
-      this.errorMessage = 'Por favor ingresa el nombre del servicio o producto.';
+      this.errorMessage = 'Por favor completa los campos obligatorios: Producto/Servicio y Categoría.';
       return;
     }
 
@@ -298,11 +346,12 @@ export class GestionPublicacionesComponent implements OnInit {
     this.submitting = true;
     this.errorMessage = null;
 
-    const { servicio_producto, precio, descripcion, foto_1, foto_2, foto_3 } = this.postForm.value;
+    const { servicio_producto, categoria_id, precio, descripcion, foto_1, foto_2, foto_3 } = this.postForm.value;
 
     const payload = {
       empresa_id: user.id,
       servicio_producto,
+      categoria_id: categoria_id || null,
       precio: precio !== null ? precio : null,
       descripcion: descripcion || null,
       foto_1: foto_1 || null,
@@ -335,7 +384,6 @@ export class GestionPublicacionesComponent implements OnInit {
     this.submitting = false;
   }
 
-  /* Cambiar estado entre 'activo' e 'inactivo' (Soft Delete / Toggle) */
   async toggleEstadoPublicacion(post: Publicacion) {
     const nuevoEstado = post.estado === 'inactivo' ? 'activo' : 'inactivo';
     const accionTexto = nuevoEstado === 'inactivo' ? 'desactivar' : 'activar';

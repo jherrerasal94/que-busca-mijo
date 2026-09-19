@@ -2,45 +2,46 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
-/** Guard para verificar que el usuario esté AUTENTICADO */
 export class AuthGuards {
   static isAuthenticated: CanActivateFn = async () => {
     const authService = inject(AuthService);
     const router = inject(Router);
-
-    // Esperar a verificar la sesión actual en Supabase
-    const supabase = authService.getSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (session) {
-      return true; // Acceso permitido
-    }
-
-    // Redirigir al Login si no tiene sesión activa
+    const user = await authService.getUser();
+    if (user) return true;
     router.navigate(['/login']);
     return false;
   };
 
-  /** Guard exclusivo para usuarios con ROL EMPRESA */
   static isEmpresa: CanActivateFn = async () => {
     const authService = inject(AuthService);
     const router = inject(Router);
-
-    const supabase = authService.getSupabaseClient();
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
+    const user = await authService.getUser();
+    
+    if (!user) {
       router.navigate(['/login']);
       return false;
     }
 
-    const role = session.user.user_metadata?.['role'];
+    const rol = await authService.obtenerRolUsuario(user.id);
+    if (rol === 'empresa') return true;
 
-    if (role === 'empresa') {
-      return true; // Acceso permitido sólo a empresas
+    router.navigate(['/']);
+    return false;
+  };
+
+  static isAdmin: CanActivateFn = async () => {
+    const authService = inject(AuthService);
+    const router = inject(Router);
+    const user = await authService.getUser();
+    
+    if (!user) {
+      router.navigate(['/login']);
+      return false;
     }
 
-    // Si es transeúnte o no es empresa, redirigir al Inicio
+    const rol = await authService.obtenerRolUsuario(user.id);
+    if (rol === 'admin') return true;
+
     router.navigate(['/']);
     return false;
   };

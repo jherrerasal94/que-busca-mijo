@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { User } from '@supabase/supabase-js';
 import { AuthService } from '../../../core/services/auth.service';
-//
+
 @Component({
   selector: 'app-navbar',
   standalone: true,
@@ -62,8 +62,8 @@ import { AuthService } from '../../../core/services/auth.service';
               @if (user) {
                 <div class="dropdown-header">
                   <div class="user-info">
-                    <span class="user-role-badge" [class.empresa]="userRole === 'empresa'">
-                      {{ userRole === 'empresa' ? '🏢 Empresa' : '👤 Usuario' }}
+                    <span class="user-role-badge" [class.empresa]="userRole === 'empresa'" [class.admin]="userRole === 'admin'">
+                      {{ userRole === 'admin' ? '🛡️ Admin' : (userRole === 'empresa' ? '🏢 Empresa' : '👤 Usuario') }}
                     </span>
                     <span class="user-full-email" [title]="user.email">{{ user.email }}</span>
                   </div>
@@ -101,6 +101,17 @@ import { AuthService } from '../../../core/services/auth.service';
                        (click)="cerrarMenu()">
                       <span class="item-icon">📢</span>
                       <span>Gestionar Publicaciones</span>
+                    </a>
+                  }
+
+                  <!-- Opción Exclusiva Administrador: Gestionar Categorías -->
+                  @if (userRole === 'admin') {
+                    <a routerLink="/admin/categorias" 
+                       routerLinkActive="active-item" 
+                       class="dropdown-item admin-item" 
+                       (click)="cerrarMenu()">
+                      <span class="item-icon">📁</span>
+                      <span>Gestionar Categorías</span>
                     </a>
                   }
 
@@ -199,7 +210,7 @@ import { AuthService } from '../../../core/services/auth.service';
       -webkit-text-stroke: 0.5px var(--primary, #002b66);
     }
 
-    /* DESPLEGABLE / MENU TRGGER */
+    /* DESPLEGABLE / MENU TRIGGER */
     .menu-wrapper {
       position: relative;
     }
@@ -314,6 +325,11 @@ import { AuthService } from '../../../core/services/auth.service';
       color: #92400e;
     }
 
+    .user-role-badge.admin {
+      background: #dbeafe;
+      color: #1e3a8a;
+    }
+
     .user-full-email {
       font-weight: 700;
       color: #002b66;
@@ -371,6 +387,15 @@ import { AuthService } from '../../../core/services/auth.service';
 
     .dropdown-item.empresa-item:hover {
       background-color: #fef3c7;
+    }
+
+    .dropdown-item.admin-item {
+      color: #1e3a8a;
+      background-color: #eff6ff;
+    }
+
+    .dropdown-item.admin-item:hover {
+      background-color: #dbeafe;
     }
 
     .dropdown-item.logout-item {
@@ -439,11 +464,10 @@ export class NavbarComponent implements OnInit {
 
   async ngOnInit() {
     await this.cargarUsuario();
-
     this.authService.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         this.user = session.user;
-        this.userRole = session.user.user_metadata?.['role'] || null;
+        this.userRole = await this.authService.obtenerRolUsuario(session.user.id);
       } else {
         this.user = null;
         this.userRole = null;
@@ -454,7 +478,10 @@ export class NavbarComponent implements OnInit {
   async cargarUsuario() {
     this.user = await this.authService.getUser();
     if (this.user) {
-      this.userRole = this.user.user_metadata?.['role'] || null;
+      // Consultamos el rol directamente de las tablas SQL
+      this.userRole = await this.authService.obtenerRolUsuario(this.user.id);
+    } else {
+      this.userRole = null;
     }
   }
 
