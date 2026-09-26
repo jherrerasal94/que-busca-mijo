@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -64,7 +64,7 @@ export interface Ciudad {
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, FormsModule, FooterComponent],
+  imports: [CommonModule, FormsModule, RouterLink, FooterComponent],
   template: `
     <div class="page-wrapper">
       <main class="main-content">
@@ -250,34 +250,70 @@ export interface Ciudad {
 
       <!-- MODAL DETALLE DE PUBLICACIÓN -->
       @if (publicacionSeleccionada) {
-        <div class="modal-overlay" (click)="cerrarModal()">
+        <div
+          class="modal-overlay"
+          (click)="cerrarModal()"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title">
           <div class="modal-content" (click)="$event.stopPropagation()">
-            <button class="btn-close-modal" (click)="cerrarModal()">✕</button>
-            
-            <h2 class="modal-title">{{ publicacionSeleccionada.servicio_producto }}</h2>
-            <p class="business-name" style="margin-bottom: 8px;">🏢 {{ publicacionSeleccionada.empresa?.nombre || 'Empresa Local' }}</p>
-            <p class="text-muted" style="font-size: 0.9rem; margin-top:0;">
-              📍 {{ publicacionSeleccionada.empresa?.ciudad?.nombre }}, 
-              {{ publicacionSeleccionada.empresa?.ciudad?.departamento?.nombre }}, 
-              {{ publicacionSeleccionada.empresa?.ciudad?.departamento?.pais?.nombre }}
-            </p>
+            <button class="btn-close-modal" (click)="cerrarModal()" title="Cerrar" aria-label="Cerrar detalle">✕</button>
 
-            @if (publicacionSeleccionada.precio !== null) {
-              <div class="modal-price">&#36;{{ publicacionSeleccionada.precio | number:'1.0-2' }}</div>
+            <!-- IMAGEN PRINCIPAL -->
+            <div class="modal-gallery-main">
+              @if (imagenSeleccionada) {
+                <img [src]="imagenSeleccionada" [alt]="publicacionSeleccionada.servicio_producto" class="gallery-main-img" />
+              } @else {
+                <div class="gallery-placeholder">🏷️</div>
+              }
+
+              @if (publicacionSeleccionada.categoria_id) {
+                <span class="modal-category-badge">📁 {{ obtenerNombreCategoria(publicacionSeleccionada.categoria_id) }}</span>
+              }
+
+              @if (publicacionSeleccionada.precio !== null) {
+                <div class="modal-price-badge">&#36;{{ publicacionSeleccionada.precio | number:'1.0-2' }}</div>
+              }
+            </div>
+
+            <!-- MINIATURAS -->
+            @if (fotosPublicacionSeleccionada.length > 1) {
+              <div class="modal-thumbnails">
+                @for (foto of fotosPublicacionSeleccionada; track foto) {
+                  <button
+                    type="button"
+                    class="thumbnail-btn"
+                    [class.active]="foto === imagenSeleccionada"
+                    (click)="seleccionarImagen(foto)">
+                    <img [src]="foto" alt="Miniatura de la publicación" />
+                  </button>
+                }
+              </div>
             }
 
-            <div class="modal-gallery">
-              @if (publicacionSeleccionada.foto_1) { <img [src]="publicacionSeleccionada.foto_1" alt="Foto 1" /> }
-              @if (publicacionSeleccionada.foto_2) { <img [src]="publicacionSeleccionada.foto_2" alt="Foto 2" /> }
-              @if (publicacionSeleccionada.foto_3) { <img [src]="publicacionSeleccionada.foto_3" alt="Foto 3" /> }
-            </div>
+            <div class="modal-body">
+              <h2 class="modal-title" id="modal-title">{{ publicacionSeleccionada.servicio_producto }}</h2>
 
-            <div class="modal-desc">
-              <h4>Descripción:</h4>
-              <p>{{ publicacionSeleccionada.descripcion || 'Sin descripción disponible.' }}</p>
+              <div class="modal-meta-row">
+                <span class="modal-business">🏢 {{ publicacionSeleccionada.empresa?.nombre || 'Empresa Local' }}</span>
+                <span class="modal-location">📍 {{ obtenerUbicacionTexto(publicacionSeleccionada) }}</span>
+              </div>
+
+              <div class="modal-desc">
+                <h4>Descripción</h4>
+                <p>{{ publicacionSeleccionada.descripcion || 'Sin descripción disponible.' }}</p>
+              </div>
+
+              <div class="modal-actions">
+                <button type="button" class="btn-outline-modal" (click)="cerrarModal()">Cerrar</button>
+                <a
+                  class="btn-primary"
+                  [routerLink]="['/empresa', publicacionSeleccionada.empresa_id]"
+                  (click)="cerrarModal()">
+                  🏢 Ver negocio
+                </a>
+              </div>
             </div>
-            
-            <button class="btn-primary full-width" (click)="cerrarModal()">Cerrar Detalle</button>
           </div>
         </div>
       }
@@ -681,37 +717,158 @@ export interface Ciudad {
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0, 43, 102, 0.6);
+      background: rgba(0, 43, 102, 0.55);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       display: flex; align-items: center; justify-content: center;
       z-index: 2000; padding: 20px; box-sizing: border-box;
+      animation: overlayFadeIn 0.2s ease-out;
     }
 
     .modal-content {
       background: #fff;
       border-radius: 24px;
-      max-width: 600px; width: 100%;
+      max-width: 640px; width: 100%;
       max-height: 90vh; overflow-y: auto;
-      padding: 28px; position: relative;
+      position: relative;
+      box-shadow: 0 25px 60px rgba(0, 43, 102, 0.35);
+      animation: modalPopIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes overlayFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes modalPopIn {
+      from { opacity: 0; transform: scale(0.94) translateY(12px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
     }
 
     .btn-close-modal {
-      position: absolute; top: 16px; right: 16px;
-      background: #f1f5f9; border: none; border-radius: 50%;
-      width: 36px; height: 36px; font-weight: bold; cursor: pointer;
+      position: absolute; top: 16px; right: 16px; z-index: 5;
+      background: rgba(255,255,255,0.92); border: none; border-radius: 50%;
+      width: 38px; height: 38px; font-weight: bold; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--primary); box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+      transition: transform 0.15s, background 0.15s;
     }
 
-    .modal-title { color: var(--primary); font-size: 1.6rem; margin: 0 0 4px 0; padding-right: 40px; }
-    .modal-price { font-size: 1.5rem; font-weight: 900; color: #4eb200; margin-bottom: 16px; }
-    .modal-gallery { display: flex; gap: 10px; overflow-x: auto; margin-bottom: 20px; }
-    .modal-gallery img { height: 200px; border-radius: 12px; object-fit: cover; }
-    .modal-desc h4 { color: var(--primary); margin: 0 0 6px 0; }
-    .modal-desc p { color: var(--text-muted); margin: 0; line-height: 1.5; }
-    
+    .btn-close-modal:hover {
+      background: #fff;
+      transform: scale(1.08);
+    }
+
+    /* GALERÍA PRINCIPAL */
+    .modal-gallery-main {
+      position: relative;
+      width: 100%;
+      height: 360px;
+      background: var(--bg-page);
+      border-radius: 24px 24px 0 0;
+      overflow: hidden;
+    }
+
+    .gallery-main-img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center 30%;
+      display: block;
+    }
+
+    .gallery-placeholder {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3.5rem; color: #cbd5e1;
+    }
+
+    .modal-category-badge {
+      position: absolute; top: 16px; left: 16px;
+      background: rgba(0, 43, 102, 0.85); color: #fff;
+      padding: 5px 14px; border-radius: 999px;
+      font-size: 0.8rem; font-weight: 700;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-price-badge {
+      position: absolute; bottom: 16px; right: 16px;
+      background: var(--accent); color: var(--primary);
+      padding: 8px 20px; border-radius: 999px;
+      font-size: 1.2rem; font-weight: 900;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+      white-space: nowrap;
+    }
+
+    .modal-gallery-main::after {
+      content: '';
+      position: absolute; left: 0; right: 0; bottom: 0; height: 90px;
+      background: linear-gradient(to top, rgba(0,0,0,0.35), rgba(0,0,0,0));
+      pointer-events: none;
+    }
+
+    /* MINIATURAS */
+    .modal-thumbnails {
+      display: flex; gap: 8px;
+      padding: 12px 24px 0;
+      overflow-x: auto;
+    }
+
+    .thumbnail-btn {
+      flex-shrink: 0; width: 64px; height: 64px;
+      border-radius: 12px; overflow: hidden;
+      border: 2px solid transparent; padding: 0; cursor: pointer;
+      opacity: 0.55; transition: opacity 0.2s, border-color 0.2s;
+      background: none;
+    }
+
+    .thumbnail-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .thumbnail-btn.active { border-color: var(--primary); opacity: 1; }
+    .thumbnail-btn:hover { opacity: 1; }
+
+    /* CUERPO DEL MODAL */
+    .modal-body { padding: 24px 28px 28px; }
+
+    .modal-title {
+      color: var(--primary); font-size: 1.5rem; font-weight: 800;
+      margin: 0 0 12px 0; line-height: 1.25;
+    }
+
+    .modal-meta-row {
+      display: flex; flex-wrap: wrap; gap: 8px 18px;
+      margin-bottom: 20px; padding-bottom: 18px;
+      border-bottom: 1px solid #eef2f6;
+    }
+
+    .modal-business, .modal-location {
+      font-size: 0.88rem; color: var(--text-muted); font-weight: 600;
+    }
+
+    .modal-desc h4 { color: var(--primary); margin: 0 0 8px 0; font-size: 1rem; }
+    .modal-desc p { color: var(--text-muted); margin: 0; line-height: 1.6; font-size: 0.95rem; }
+
+    .modal-actions {
+      display: flex; gap: 12px; margin-top: 26px;
+    }
+
+    .btn-outline-modal {
+      flex: 1; background: transparent; border: 2px solid #e2e8f0;
+      color: var(--text-muted); padding: 12px; border-radius: 14px;
+      font-weight: 700; cursor: pointer; transition: all 0.2s;
+    }
+
+    .btn-outline-modal:hover { border-color: var(--primary); color: var(--primary); }
+
+    .modal-actions .btn-primary { flex: 2; margin-top: 0; }
+
     .btn-primary {
       background: var(--primary); color: var(--accent); border: none;
       padding: 12px; border-radius: 14px; font-weight: 800; cursor: pointer;
-      margin-top: 24px;
+      margin-top: 24px; transition: opacity 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      text-decoration: none; text-align: center;
     }
+    .btn-primary:hover { opacity: 0.9; color: var(--accent); }
     .full-width { width: 100%; }
 
     /* RESPONSIVE */
@@ -722,6 +879,12 @@ export interface Ciudad {
       .categories-list { justify-content: flex-start; }
       .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
       .filters-row { grid-template-columns: 1fr; }
+
+      .modal-gallery-main { height: 240px; }
+      .modal-price-badge { font-size: 1.05rem; padding: 7px 16px; bottom: 12px; right: 12px; }
+      .modal-body { padding: 20px; }
+      .modal-actions { flex-direction: column-reverse; }
+      .modal-actions .btn-primary { flex: none; }
     }
   `]
 })
@@ -750,7 +913,17 @@ export class HomeComponent implements OnInit {
   filtroCiudadId = '';
 
   publicacionSeleccionada: PublicacionConEmpresa | null = null;
+  imagenSeleccionada: string | null = null;
   likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
+
+  get fotosPublicacionSeleccionada(): string[] {
+    if (!this.publicacionSeleccionada) return [];
+    return [
+      this.publicacionSeleccionada.foto_1,
+      this.publicacionSeleccionada.foto_2,
+      this.publicacionSeleccionada.foto_3
+    ].filter((foto): foto is string => !!foto);
+  }
 
   async ngOnInit() {
     this.currentUser = await this.authService.getUser();
@@ -953,11 +1126,36 @@ export class HomeComponent implements OnInit {
     this.filtrarPublicaciones();
   }
 
+  obtenerUbicacionTexto(pub: PublicacionConEmpresa): string {
+    const partes = [
+      pub.empresa?.ciudad?.nombre,
+      pub.empresa?.ciudad?.departamento?.nombre,
+      pub.empresa?.ciudad?.departamento?.pais?.nombre
+    ].filter((parte): parte is string => !!parte);
+
+    return partes.length ? partes.join(', ') : 'Ubicación no especificada';
+  }
+
   abrirModal(pub: PublicacionConEmpresa) {
     this.publicacionSeleccionada = pub;
+    this.imagenSeleccionada = pub.foto_1 || pub.foto_2 || pub.foto_3 || null;
+    document.body.style.overflow = 'hidden';
+  }
+
+  seleccionarImagen(foto: string) {
+    this.imagenSeleccionada = foto;
   }
 
   cerrarModal() {
     this.publicacionSeleccionada = null;
+    this.imagenSeleccionada = null;
+    document.body.style.overflow = '';
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapePress() {
+    if (this.publicacionSeleccionada) {
+      this.cerrarModal();
+    }
   }
 }

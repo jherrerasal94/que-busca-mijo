@@ -224,12 +224,13 @@ interface PlataformaSocial {
                   ➕ Agregar Red Social
                 </button>
 
-                <h3 class="section-subtitle-form">🖼️ Multimedia e Imágenes (URLs)</h3>
+                <h3 class="section-subtitle-form">🖼️ Multimedia e Imágenes</h3>
 
+                <!-- Logo con carga de archivo -->
                 <div class="form-row align-items-center">
                   <div class="form-group">
-                    <label for="logo">URL del Logo</label>
-                    <input id="logo" type="text" formControlName="logo" placeholder="https://tu-sitio.com/logo.png" class="form-input" />
+                    <label for="logo_file">Subir Logo de la Empresa</label>
+                    <input id="logo_file" type="file" accept="image/*" (change)="onFileSelected($event, 'logo')" class="form-input" />
                   </div>
                   <div class="form-group preview-box-container">
                     <label>Previsualización del Logo</label>
@@ -243,10 +244,11 @@ interface PlataformaSocial {
                   </div>
                 </div>
 
+                <!-- Imagen Empresa 1 con carga de archivo -->
                 <div class="form-row align-items-center">
                   <div class="form-group">
-                    <label for="img_empresa_1">URL Imagen Empresa 1</label>
-                    <input id="img_empresa_1" type="text" formControlName="img_empresa_1" placeholder="https://tu-sitio.com/img1.jpg" class="form-input" />
+                    <label for="img_1_file">Subir Imagen Empresa 1</label>
+                    <input id="img_1_file" type="file" accept="image/*" (change)="onFileSelected($event, 'img_empresa_1')" class="form-input" />
                   </div>
                   <div class="form-group preview-box-container">
                     <label>Previsualización Imagen 1</label>
@@ -261,10 +263,11 @@ interface PlataformaSocial {
                   </div>
                 </div>
 
+                <!-- Imagen Empresa 2 con carga de archivo -->
                 <div class="form-row align-items-center">
                   <div class="form-group">
-                    <label for="img_empresa_2">URL Imagen Empresa 2</label>
-                    <input id="img_empresa_2" type="text" formControlName="img_empresa_2" placeholder="https://tu-sitio.com/img2.jpg" class="form-input" />
+                    <label for="img_2_file">Subir Imagen Empresa 2</label>
+                    <input id="img_2_file" type="file" accept="image/*" (change)="onFileSelected($event, 'img_empresa_2')" class="form-input" />
                   </div>
                   <div class="form-group preview-box-container">
                     <label>Previsualización Imagen 2</label>
@@ -492,7 +495,6 @@ interface PlataformaSocial {
       margin: 0;
     }
 
-    /* ESTILOS NUEVOS PARA TARJETA DE PLAN Y SOLICITUDES */
     .plan-status-card {
       margin-bottom: 30px;
       border: 2px solid #84cc16 !important;
@@ -920,7 +922,6 @@ export class PerfilComponent implements OnInit {
   mensajeExito = '';
   mensajeError = '';
 
-  // Propiedades nuevas para planes y solicitudes
   planActual: any = null;
   solicitudPendiente: any = null;
   cargandoPlan = false;
@@ -1055,6 +1056,38 @@ export class PerfilComponent implements OnInit {
     }
   }
 
+  // Método optimizado para la subida de archivos a Supabase Storage
+  async onFileSelected(event: any, campoControl: string) {
+    const file: File = event.target.files[0];
+    if (!file) return;
+
+    try {
+      this.guardando = true;
+      const supabase = this.authService.getSupabaseClient();
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${this.userId}/${campoControl}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('empresas-media')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('empresas-media')
+        .getPublicUrl(fileName);
+
+      this.perfilForm.get(campoControl)?.setValue(publicUrl);
+      this.mensajeExito = '¡Imagen cargada con éxito! Recuerda guardar los cambios.';
+    } catch (err: any) {
+      console.error('Error al subir la imagen:', err);
+      this.mensajeError = 'No se pudo cargar la imagen: ' + (err.message || 'Error desconocido');
+    } finally {
+      this.guardando = false;
+    }
+  }
+
   async cargarDatosPerfil() {
     this.cargando = true;
     try {
@@ -1065,8 +1098,7 @@ export class PerfilComponent implements OnInit {
       this.correoRegistro = user.email || '';
       const supabase = this.authService.getSupabaseClient();
 
-      // 1. Intentar buscar si es una empresa
-      const { data: empresaData, error: empresaError } = await supabase
+      const { data: empresaData } = await supabase
         .from('empresas')
         .select('*')
         .eq('id', this.userId)
@@ -1076,7 +1108,6 @@ export class PerfilComponent implements OnInit {
         this.tipoUsuario = 'empresa';
         this.configurarValidadoresEmpresa();
 
-        // Cargar información del plan y solicitudes de la empresa
         await this.cargarInformacionPlanEmpresa(this.userId);
 
         let paisId = '';
@@ -1093,7 +1124,6 @@ export class PerfilComponent implements OnInit {
           }
         }
 
-        // Cargar Redes Sociales de la Empresa
         this.redesSocialesFormArray.clear();
         const { data: redesData, error: redesError } = await supabase
           .from('redes_sociales')
@@ -1128,7 +1158,6 @@ export class PerfilComponent implements OnInit {
         return;
       }
 
-      // 2. Si no es empresa, buscar si es transeúnte
       const { data: transeunteData } = await supabase
         .from('transeuntes')
         .select('*')
@@ -1185,7 +1214,6 @@ export class PerfilComponent implements OnInit {
     }
   }
 
-  // Método para cargar datos específicos del plan de la empresa
   async cargarInformacionPlanEmpresa(empresaId: string) {
     this.cargandoPlan = true;
     try {

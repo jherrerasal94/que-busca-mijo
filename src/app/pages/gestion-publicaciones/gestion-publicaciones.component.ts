@@ -74,22 +74,52 @@ export interface Categoria {
               <textarea formControlName="descripcion" rows="3" placeholder="Detalles del producto o servicio..."></textarea>
             </div>
 
-            <!-- FOTOS -->
-            <div class="section-title">Imágenes / Galería (URLs)</div>
+            <!-- CARGA DE FOTOS DESDE ARCHIVO -->
+            <div class="section-title">Imágenes / Galería</div>
             
+            <!-- Foto 1 -->
             <div class="form-group">
-              <label>Foto Principal (Foto 1)</label>
-              <input type="url" formControlName="foto_1" placeholder="https://ejemplo.com/foto1.jpg" />
+              <label>Foto Principal (Foto 1) *</label>
+              <input type="file" accept="image/*" (change)="onFileSelected($event, 'foto_1')" />
+              @if (uploadingFoto1) {
+                <span class="uploading-text">Subiendo foto 1...</span>
+              }
+              @if (postForm.get('foto_1')?.value) {
+                <div class="preview-box">
+                  <img [src]="postForm.get('foto_1')?.value" alt="Preview Foto 1" />
+                  <button type="button" (click)="removerFoto('foto_1')" class="btn-remove-img">✕</button>
+                </div>
+              }
             </div>
 
+            <!-- Foto 2 -->
             <div class="form-group">
               <label>Foto 2 (Opcional)</label>
-              <input type="url" formControlName="foto_2" placeholder="https://ejemplo.com/foto2.jpg" />
+              <input type="file" accept="image/*" (change)="onFileSelected($event, 'foto_2')" />
+              @if (uploadingFoto2) {
+                <span class="uploading-text">Subiendo foto 2...</span>
+              }
+              @if (postForm.get('foto_2')?.value) {
+                <div class="preview-box">
+                  <img [src]="postForm.get('foto_2')?.value" alt="Preview Foto 2" />
+                  <button type="button" (click)="removerFoto('foto_2')" class="btn-remove-img">✕</button>
+                </div>
+              }
             </div>
 
+            <!-- Foto 3 -->
             <div class="form-group">
               <label>Foto 3 (Opcional)</label>
-              <input type="url" formControlName="foto_3" placeholder="https://ejemplo.com/foto3.jpg" />
+              <input type="file" accept="image/*" (change)="onFileSelected($event, 'foto_3')" />
+              @if (uploadingFoto3) {
+                <span class="uploading-text">Subiendo foto 3...</span>
+              }
+              @if (postForm.get('foto_3')?.value) {
+                <div class="preview-box">
+                  <img [src]="postForm.get('foto_3')?.value" alt="Preview Foto 3" />
+                  <button type="button" (click)="removerFoto('foto_3')" class="btn-remove-img">✕</button>
+                </div>
+              }
             </div>
 
             @if (errorMessage) {
@@ -97,7 +127,7 @@ export interface Categoria {
             }
 
             <div class="actions-group">
-              <button type="submit" class="btn-primary full-width" [disabled]="submitting">
+              <button type="submit" class="btn-primary full-width" [disabled]="submitting || uploadingFoto1 || uploadingFoto2 || uploadingFoto3">
                 {{ submitting ? 'Guardando...' : (editingId ? 'Guardar Cambios' : 'Publicar Ahora') }}
               </button>
               
@@ -138,7 +168,6 @@ export interface Categoria {
                       </span>
                     </div>
 
-                    <!-- MOSTRAR NOMBRE DE LA CATEGORÍA SI EXISTE -->
                     @if (post.categoria_id) {
                       <span class="post-category">📁 {{ obtenerNombreCategoria(post.categoria_id) }}</span>
                     }
@@ -158,7 +187,6 @@ export interface Categoria {
                     <button (click)="cargarEnFormulario(post)" class="btn-icon btn-edit" title="Editar">
                       ✏️
                     </button>
-                    <!-- BOTÓN PARA CAMBIAR ESTADO (INACTIVAR / ACTIVAR) -->
                     <button 
                       (click)="toggleEstadoPublicacion(post)" 
                       class="btn-icon" 
@@ -196,6 +224,12 @@ export interface Categoria {
     .btn-secondary { background: #e2e8f0; color: #334155; border: none; padding: 10px; border-radius: 8px; font-weight: 700; cursor: pointer; }
     .btn-secondary:hover { background: #cbd5e1; }
     .full-width { width: 100%; }
+    
+    .uploading-text { font-size: 0.75rem; color: #0284c7; font-weight: 600; }
+    .preview-box { position: relative; width: 80px; height: 80px; margin-top: 6px; border-radius: 6px; overflow: hidden; border: 1px solid #cbd5e1; }
+    .preview-box img { width: 100%; height: 100%; object-fit: cover; }
+    .btn-remove-img { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
     .posts-list { display: flex; flex-direction: column; gap: 12px; }
     .post-item { display: flex; gap: 12px; align-items: center; border: 1px solid #f1f5f9; padding: 10px; border-radius: 8px; background: #fafafa; transition: all 0.2s; }
     .post-item.selected { border: 2px solid #0284c7; background: #f0f9ff; }
@@ -243,6 +277,10 @@ export class GestionPublicacionesComponent implements OnInit {
   submitting = false;
   errorMessage: string | null = null;
   
+  uploadingFoto1 = false;
+  uploadingFoto2 = false;
+  uploadingFoto3 = false;
+
   likesCountMap: { [key: string]: number } = {};
   editingId: string | null = null;
 
@@ -308,6 +346,54 @@ export class GestionPublicacionesComponent implements OnInit {
       const total = await this.likeService.contarLikes(post.id);
       this.likesCountMap[post.id] = total;
     }
+  }
+
+  // MÉTODO PARA SUBIR ARCHIVOS AL BUCKET 'publicaciones-media'
+  async onFileSelected(event: any, campo: 'foto_1' | 'foto_2' | 'foto_3') {
+    const file: File = event.target.files[0];
+    if (!file) return;
+
+    const user = await this.authService.getUser();
+    if (!user) {
+      this.errorMessage = 'Debes estar autenticado para subir imágenes.';
+      return;
+    }
+
+    // Activar indicador de carga según el campo
+    if (campo === 'foto_1') this.uploadingFoto1 = true;
+    if (campo === 'foto_2') this.uploadingFoto2 = true;
+    if (campo === 'foto_3') this.uploadingFoto3 = true;
+    this.errorMessage = null;
+
+    try {
+      const supabase = this.authService.getSupabaseClient();
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${campo}_${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('publicaciones-media')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('publicaciones-media')
+        .getPublicUrl(fileName);
+
+      // Asignar URL al formulario reactivo
+      this.postForm.get(campo)?.setValue(publicUrl);
+    } catch (err: any) {
+      console.error('Error al subir imagen:', err);
+      this.errorMessage = 'Error al subir la imagen: ' + (err.message || '');
+    } finally {
+      if (campo === 'foto_1') this.uploadingFoto1 = false;
+      if (campo === 'foto_2') this.uploadingFoto2 = false;
+      if (campo === 'foto_3') this.uploadingFoto3 = false;
+    }
+  }
+
+  removerFoto(campo: 'foto_1' | 'foto_2' | 'foto_3') {
+    this.postForm.get(campo)?.setValue('');
   }
 
   cargarEnFormulario(post: Publicacion) {

@@ -17,6 +17,7 @@ export const routes: Routes = [
   { path: 'planes', component: PlanesComponent },          // Página de Planes
   { path: 'adquirir-plan', component: AdquirirPlanComponent }, // Adquirir Plan
   { path: 'admin-planes', component: GestionarPlanesComponent }, // Gestión Admin de Planes
+  { path: 'empresa/:id', loadComponent: () => import('./pages/empresa-detalle/empresa-detalle.component').then(m => m.EmpresaDetalleComponent)},
 
   // Rutas Protegidas
   {
