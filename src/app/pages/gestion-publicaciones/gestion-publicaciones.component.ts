@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
 
@@ -25,15 +26,40 @@ export interface Categoria {
   estado: string;
 }
 
+export interface PlanInfo {
+  nombre: string;
+  limite_publicaciones: number | null; // null = ilimitado
+}
+
 @Component({
   selector: 'app-gestion-publicaciones',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink],
   template: `
     <div class="gestion-container">
       <div class="header">
         <h2>📢 Gestión de Publicaciones</h2>
         <p>Crea y administra los productos o servicios asociados a tu empresa.</p>
+
+        @if (!cargandoPlan) {
+          @if (planInfo) {
+            <div class="plan-usage-banner" [class.limite]="limiteAlcanzado">
+              📊 Plan <strong>{{ planInfo.nombre }}</strong> —
+              {{ publicacionesActivasCount }}
+              @if (planInfo.limite_publicaciones !== null) {
+                / {{ planInfo.limite_publicaciones }}
+              } @else {
+                (ilimitado)
+              }
+              publicaciones activas
+            </div>
+          } @else {
+            <div class="plan-usage-banner limite">
+              ⚠️ No tienes un plan activo asignado.
+              <a routerLink="/planes">Solicita uno aquí</a> para poder publicar.
+            </div>
+          }
+        }
       </div>
 
       <div class="grid-layout">
@@ -127,8 +153,11 @@ export interface Categoria {
             }
 
             <div class="actions-group">
-              <button type="submit" class="btn-primary full-width" [disabled]="submitting || uploadingFoto1 || uploadingFoto2 || uploadingFoto3">
-                {{ submitting ? 'Guardando...' : (editingId ? 'Guardar Cambios' : 'Publicar Ahora') }}
+              <button 
+                type="submit" 
+                class="btn-primary full-width" 
+                [disabled]="submitting || uploadingFoto1 || uploadingFoto2 || uploadingFoto3 || (!editingId && limiteAlcanzado)">
+                {{ submitting ? 'Guardando...' : (editingId ? 'Guardar Cambios' : (limiteAlcanzado ? 'Límite de publicaciones alcanzado' : 'Publicar Ahora')) }}
               </button>
               
               @if (editingId) {
@@ -192,7 +221,8 @@ export interface Categoria {
                       class="btn-icon" 
                       [class.btn-activate]="post.estado === 'inactivo'"
                       [class.btn-deactivate]="post.estado !== 'inactivo'"
-                      [title]="post.estado === 'inactivo' ? 'Activar' : 'Desactivar'">
+                      [disabled]="post.estado === 'inactivo' && limiteAlcanzado"
+                      [title]="post.estado === 'inactivo' ? (limiteAlcanzado ? 'Alcanzaste el límite de tu plan' : 'Activar') : 'Desactivar'">
                       {{ post.estado === 'inactivo' ? '✅' : '🚫' }}
                     </button>
                   </div>
@@ -264,6 +294,30 @@ export interface Categoria {
 
     .error-banner { background: #fee2e2; color: #b91c1c; padding: 8px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 10px; }
     .empty-state { color: #94a3b8; font-style: italic; }
+
+    .plan-usage-banner {
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+    .plan-usage-banner.limite {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    .plan-usage-banner a {
+      color: inherit;
+      text-decoration: underline;
+      font-weight: 800;
+    }
+
+    .btn-icon:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
   `]
 })
 export class GestionPublicacionesComponent implements OnInit {
@@ -284,6 +338,30 @@ export class GestionPublicacionesComponent implements OnInit {
   likesCountMap: { [key: string]: number } = {};
   editingId: string | null = null;
 
+  planInfo: PlanInfo | null = null;
+  cargandoPlan = true;
+
+  get publicacionesActivasCount(): number {
+    return this.publicaciones.filter(p => p.estado !== 'inactivo').length;
+  }
+
+  get limiteAlcanzado(): boolean {
+    if (this.cargandoPlan) return true; // por seguridad, no permitir mientras carga
+    if (!this.planInfo) return true; // sin plan asignado => no puede publicar
+    if (this.planInfo.limite_publicaciones === null) return false; // ilimitado
+    return this.publicacionesActivasCount >= this.planInfo.limite_publicaciones;
+  }
+
+  mensajeLimite(): string {
+    if (this.cargandoPlan) {
+      return 'Cargando información de tu plan, intenta de nuevo en un momento.';
+    }
+    if (!this.planInfo) {
+      return 'No tienes un plan activo asignado. Solicita un plan para poder publicar.';
+    }
+    return `Alcanzaste el límite de ${this.planInfo.limite_publicaciones} publicaciones activas de tu plan "${this.planInfo.nombre}". Desactiva alguna publicación o mejora tu plan para continuar.`;
+  }
+
   postForm: FormGroup = this.fb.group({
     servicio_producto: ['', Validators.required],
     categoria_id: [null, Validators.required],
@@ -295,8 +373,39 @@ export class GestionPublicacionesComponent implements OnInit {
   });
 
   async ngOnInit() {
+    await this.cargarPlanEmpresa();
     await this.cargarCategorias();
     await this.cargarPublicaciones();
+  }
+
+  async cargarPlanEmpresa() {
+    this.cargandoPlan = true;
+    const user = await this.authService.getUser();
+    if (!user) {
+      this.planInfo = null;
+      this.cargandoPlan = false;
+      return;
+    }
+
+    // empresas.id = auth.users.id
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('empresas')
+      .select(`
+        plan_id,
+        plan:planes (
+          nombre,
+          limite_publicaciones
+        )
+      `)
+      .eq('id', user.id)
+      .single();
+
+    if (error || !data?.plan) {
+      this.planInfo = null;
+    } else {
+      this.planInfo = data.plan as unknown as PlanInfo;
+    }
+    this.cargandoPlan = false;
   }
 
   async cargarCategorias() {
@@ -423,6 +532,13 @@ export class GestionPublicacionesComponent implements OnInit {
       return;
     }
 
+    // Solo aplica al crear una publicación nueva (que nace en estado 'activo').
+    // Editar una publicación existente no cambia su estado ni suma al conteo.
+    if (!this.editingId && this.limiteAlcanzado) {
+      this.errorMessage = this.mensajeLimite();
+      return;
+    }
+
     const user = await this.authService.getUser();
     if (!user) {
       this.errorMessage = 'Debes estar autenticado.';
@@ -472,6 +588,13 @@ export class GestionPublicacionesComponent implements OnInit {
 
   async toggleEstadoPublicacion(post: Publicacion) {
     const nuevoEstado = post.estado === 'inactivo' ? 'activo' : 'inactivo';
+
+    // Si se está intentando activar y ya se alcanzó el límite del plan, se bloquea.
+    if (nuevoEstado === 'activo' && this.limiteAlcanzado) {
+      alert(this.mensajeLimite());
+      return;
+    }
+
     const accionTexto = nuevoEstado === 'inactivo' ? 'desactivar' : 'activar';
 
     if (!confirm(`¿Estás seguro de ${accionTexto} esta publicación?`)) return;

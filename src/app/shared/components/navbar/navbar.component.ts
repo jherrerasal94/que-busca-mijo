@@ -4,6 +4,20 @@ import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { User } from '@supabase/supabase-js';
 import { AuthService } from '../../../core/services/auth.service';
 
+export interface PlanEmpresa {
+  nombre: string;
+  limite_publicaciones?: number | null;
+  costo?: number | null;
+}
+
+export interface EmpresaInfo {
+  nombre?: string;
+  logo?: string | null;
+  plan_id?: string | null;
+  plan_valido_hasta?: string | null;
+  plan?: PlanEmpresa | null;
+}
+
 @Component({
   selector: 'app-navbar',
   standalone: true,
@@ -38,7 +52,9 @@ import { AuthService } from '../../../core/services/auth.service';
             aria-label="Abrir menú de usuario">
             
             <div class="user-avatar-badge">
-              @if (user) {
+              @if (userRole === 'empresa' && empresaInfo?.logo) {
+                <img [src]="empresaInfo!.logo!" [alt]="empresaInfo?.nombre || 'Logo empresa'" class="avatar-logo-img" />
+              } @else if (user) {
                 <span>{{ user.email?.charAt(0)?.toUpperCase() || '👤' }}</span>
               } @else {
                 <span>👤</span>
@@ -66,6 +82,12 @@ import { AuthService } from '../../../core/services/auth.service';
                       {{ userRole === 'admin' ? '🛡️ Admin' : (userRole === 'empresa' ? '🏢 Empresa' : '👤 Usuario') }}
                     </span>
                     <span class="user-full-email" [title]="user.email">{{ user.email }}</span>
+
+                    @if (userRole === 'empresa') {
+                      <span class="plan-badge" [class.sin-plan]="!empresaInfo?.plan">
+                        💎 {{ empresaInfo?.plan?.nombre || 'Sin plan activo' }}
+                      </span>
+                    }
                   </div>
                 </div>
                 <div class="dropdown-divider"></div>
@@ -112,6 +134,14 @@ import { AuthService } from '../../../core/services/auth.service';
                        (click)="cerrarMenu()">
                       <span class="item-icon">📁</span>
                       <span>Gestionar Categorías</span>
+                    </a>
+
+                    <a routerLink="/admin-planes" 
+                       routerLinkActive="active-item" 
+                       class="dropdown-item admin-item" 
+                       (click)="cerrarMenu()">
+                      <span class="item-icon">📋</span>
+                      <span>Administrar Solicitudes</span>
                     </a>
                   }
 
@@ -251,6 +281,14 @@ import { AuthService } from '../../../core/services/auth.service';
       font-weight: 900;
       font-size: 0.95rem;
       border: 1.5px solid #042456;
+      overflow: hidden;
+    }
+
+    .avatar-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     .menu-label {
@@ -328,6 +366,22 @@ import { AuthService } from '../../../core/services/auth.service';
     .user-role-badge.admin {
       background: #dbeafe;
       color: #1e3a8a;
+    }
+
+    .plan-badge {
+      align-self: flex-start;
+      font-size: 0.78rem;
+      font-weight: 800;
+      background: #fef3c7;
+      color: #92400e;
+      padding: 3px 10px;
+      border-radius: 10px;
+      margin-top: 2px;
+    }
+
+    .plan-badge.sin-plan {
+      background: #f1f5f9;
+      color: #64748b;
     }
 
     .user-full-email {
@@ -460,6 +514,7 @@ export class NavbarComponent implements OnInit {
 
   user: User | null = null;
   userRole: string | null = null;
+  empresaInfo: EmpresaInfo | null = null;
   menuAbierto = false;
 
   async ngOnInit() {
@@ -468,9 +523,11 @@ export class NavbarComponent implements OnInit {
       if (session?.user) {
         this.user = session.user;
         this.userRole = await this.authService.obtenerRolUsuario(session.user.id);
+        await this.cargarEmpresaInfoSiAplica();
       } else {
         this.user = null;
         this.userRole = null;
+        this.empresaInfo = null;
       }
     });
   }
@@ -480,8 +537,42 @@ export class NavbarComponent implements OnInit {
     if (this.user) {
       // Consultamos el rol directamente de las tablas SQL
       this.userRole = await this.authService.obtenerRolUsuario(this.user.id);
+      await this.cargarEmpresaInfoSiAplica();
     } else {
       this.userRole = null;
+      this.empresaInfo = null;
+    }
+  }
+
+  async cargarEmpresaInfoSiAplica() {
+    if (this.userRole !== 'empresa' || !this.user) {
+      this.empresaInfo = null;
+      return;
+    }
+
+    // empresas.id = auth.users.id, así que la empresa del usuario logueado
+    // es la fila cuyo id coincide con el id del usuario autenticado.
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('empresas')
+      .select(`
+        nombre,
+        logo,
+        plan_id,
+        plan_valido_hasta,
+        plan:planes (
+          nombre,
+          limite_publicaciones,
+          costo
+        )
+      `)
+      .eq('id', this.user.id)
+      .single();
+
+    if (error) {
+      console.error('Error al cargar información de la empresa:', error);
+      this.empresaInfo = null;
+    } else {
+      this.empresaInfo = data as unknown as EmpresaInfo;
     }
   }
 
@@ -498,6 +589,7 @@ export class NavbarComponent implements OnInit {
     await this.authService.signOut();
     this.user = null;
     this.userRole = null;
+    this.empresaInfo = null;
     this.router.navigate(['/login']);
   }
 

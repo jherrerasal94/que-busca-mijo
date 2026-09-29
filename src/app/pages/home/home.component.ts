@@ -7,6 +7,14 @@ import { LikeService } from '../../core/services/like.service';
 import { User } from '@supabase/supabase-js';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
+export interface RedSocial {
+  id: string;
+  empresa_id: string;
+  plataforma?: string | null;
+  plataforma_id?: string | null;
+  url: string;
+}
+
 export interface PublicacionConEmpresa {
   id: string;
   empresa_id: string;
@@ -22,6 +30,7 @@ export interface PublicacionConEmpresa {
     nombre?: string;
     direccion?: string;
     ciudad_id?: string;
+    redes_sociales?: RedSocial[];
     ciudad?: {
       id?: string;
       nombre?: string;
@@ -306,6 +315,15 @@ export interface Ciudad {
 
               <div class="modal-actions">
                 <button type="button" class="btn-outline-modal" (click)="cerrarModal()">Cerrar</button>
+                @if (obtenerLinkWhatsapp(publicacionSeleccionada); as linkWhatsapp) {
+                  <a
+                    class="btn-whatsapp"
+                    [href]="linkWhatsapp"
+                    target="_blank"
+                    rel="noopener noreferrer">
+                    💬 WhatsApp
+                  </a>
+                }
                 <a
                   class="btn-primary"
                   [routerLink]="['/empresa', publicacionSeleccionada.empresa_id]"
@@ -848,18 +866,19 @@ export interface Ciudad {
     .modal-desc p { color: var(--text-muted); margin: 0; line-height: 1.6; font-size: 0.95rem; }
 
     .modal-actions {
-      display: flex; gap: 12px; margin-top: 26px;
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px;
     }
 
     .btn-outline-modal {
-      flex: 1; background: transparent; border: 2px solid #e2e8f0;
+      flex: 1 1 100px; background: transparent; border: 2px solid #e2e8f0;
       color: var(--text-muted); padding: 12px; border-radius: 14px;
       font-weight: 700; cursor: pointer; transition: all 0.2s;
     }
 
     .btn-outline-modal:hover { border-color: var(--primary); color: var(--primary); }
 
-    .modal-actions .btn-primary { flex: 2; margin-top: 0; }
+    .modal-actions .btn-primary,
+    .modal-actions .btn-whatsapp { flex: 1 1 150px; margin-top: 0; }
 
     .btn-primary {
       background: var(--primary); color: var(--accent); border: none;
@@ -869,6 +888,16 @@ export interface Ciudad {
       text-decoration: none; text-align: center;
     }
     .btn-primary:hover { opacity: 0.9; color: var(--accent); }
+
+    .btn-whatsapp {
+      background: #25d366; color: #fff; border: none;
+      padding: 12px; border-radius: 14px; font-weight: 800; cursor: pointer;
+      transition: opacity 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      text-decoration: none; text-align: center;
+    }
+    .btn-whatsapp:hover { opacity: 0.9; color: #fff; }
+
     .full-width { width: 100%; }
 
     /* RESPONSIVE */
@@ -884,7 +913,8 @@ export interface Ciudad {
       .modal-price-badge { font-size: 1.05rem; padding: 7px 16px; bottom: 12px; right: 12px; }
       .modal-body { padding: 20px; }
       .modal-actions { flex-direction: column-reverse; }
-      .modal-actions .btn-primary { flex: none; }
+      .modal-actions .btn-primary,
+      .modal-actions .btn-whatsapp { flex: none; }
     }
   `]
 })
@@ -915,6 +945,9 @@ export class HomeComponent implements OnInit {
   publicacionSeleccionada: PublicacionConEmpresa | null = null;
   imagenSeleccionada: string | null = null;
   likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
+
+  // ID de la plataforma "WhatsApp Business" en la tabla plataformas_sociales
+  private readonly PLATAFORMA_WHATSAPP_ID = '4e35d5d5-8d91-4131-8b04-dc44b5195527';
 
   get fotosPublicacionSeleccionada(): string[] {
     if (!this.publicacionSeleccionada) return [];
@@ -1020,6 +1053,11 @@ export class HomeComponent implements OnInit {
           nombre,
           direccion,
           ciudad_id,
+          redes_sociales (
+            url,
+            plataforma,
+            plataforma_id
+          ),
           ciudad:ciudades (
             id,
             nombre,
@@ -1134,6 +1172,38 @@ export class HomeComponent implements OnInit {
     ].filter((parte): parte is string => !!parte);
 
     return partes.length ? partes.join(', ') : 'Ubicación no especificada';
+  }
+
+  obtenerLinkWhatsapp(pub: PublicacionConEmpresa): string | null {
+    const redes = pub.empresa?.redes_sociales || [];
+
+    const redWhatsapp = redes.find(r =>
+      r.plataforma_id === this.PLATAFORMA_WHATSAPP_ID ||
+      (r.plataforma || '').toLowerCase().includes('whatsapp')
+    );
+
+    if (!redWhatsapp?.url) return null;
+
+    const valor = redWhatsapp.url.trim();
+
+    // Si en redes_sociales.url ya guardaron un link completo (wa.me, api.whatsapp.com, etc.)
+    if (/^https?:\/\//i.test(valor)) {
+      return valor;
+    }
+
+    // Si no, se asume que es un número de teléfono y se construye el link
+    let numero = valor.replace(/\D/g, '');
+    if (!numero) return null;
+
+    // Si el número no trae indicativo de país, se asume Colombia (57)
+    if (numero.length <= 10) {
+      numero = '57' + numero;
+    }
+
+    const mensaje = encodeURIComponent(
+      `Hola, vi tu publicación "${pub.servicio_producto}" en Qué Busca Mijo y quisiera más información.`
+    );
+    return `https://wa.me/${numero}?text=${mensaje}`;
   }
 
   abrirModal(pub: PublicacionConEmpresa) {

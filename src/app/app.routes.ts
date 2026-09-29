@@ -16,8 +16,7 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },      // Página de Registro
   { path: 'planes', component: PlanesComponent },          // Página de Planes
   { path: 'adquirir-plan', component: AdquirirPlanComponent }, // Adquirir Plan
-  { path: 'admin-planes', component: GestionarPlanesComponent }, // Gestión Admin de Planes
-  { path: 'empresa/:id', loadComponent: () => import('./pages/empresa-detalle/empresa-detalle.component').then(m => m.EmpresaDetalleComponent)},
+  { path: 'empresa/:id', loadComponent: () => import('./pages/empresa-detalle/empresa-detalle.component').then(m => m.EmpresaDetalleComponent) },
 
   // Rutas Protegidas
   {
@@ -33,6 +32,11 @@ export const routes: Routes = [
   {
     path: 'admin/categorias',
     component: GestionCategoriasComponent,
+    canActivate: [AuthGuards.isAdmin]                      // 🔒 Exclusivo para Administradores (ajusta si tu guard tiene otro nombre)
+  },
+  {
+    path: 'admin-planes',
+    component: GestionarPlanesComponent,
     canActivate: [AuthGuards.isAdmin]                      // 🔒 Exclusivo para Administradores (ajusta si tu guard tiene otro nombre)
   },
 
