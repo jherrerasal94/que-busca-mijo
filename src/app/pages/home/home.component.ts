@@ -197,7 +197,7 @@ export interface Ciudad {
                       [class.liked]="likesMap[pub.id]?.hasLiked"
                       (click)="$event.stopPropagation(); onToggleLike(pub.id)"
                       title="Dar Me gusta">
-                      {{ likesMap[pub.id]?.hasLiked ? '❤️' : '🤍' }}
+                      {{ likesMap[pub.id]?.hasLiked ? '❤' : '🤍' }}
                     </button>
 
                     @if (pub.precio !== null) {
@@ -313,13 +313,25 @@ export interface Ciudad {
           <div class="modal-content" (click)="$event.stopPropagation()">
             <button class="btn-close-modal" (click)="cerrarModal()" title="Cerrar" aria-label="Cerrar detalle">✕</button>
 
-            <!-- IMAGEN PRINCIPAL -->
-            <div class="modal-gallery-main">
+            <!-- IMAGEN PRINCIPAL CON ZOOM POR CLIC -->
+            <div
+              class="modal-gallery-main"
+              [class.is-fullscreen]="isZoomed"
+              (click)="toggleZoomFullscreen()">
               @if (imagenSeleccionada) {
-                <img [src]="imagenSeleccionada" [alt]="publicacionSeleccionada.servicio_producto" class="gallery-main-img" />
+                <img
+                  [src]="imagenSeleccionada"
+                  [alt]="publicacionSeleccionada.servicio_producto"
+                  class="gallery-main-img"
+                  [class.zoomed]="isZoomed" />
               } @else {
                 <div class="gallery-placeholder">🏷️</div>
               }
+
+              <!-- Indicador visual de zoom -->
+              <div class="zoom-hint">
+                {{ isZoomed ? '🔍 Clic para alejar' : '🔍 Haz clic para ampliar imagen' }}
+              </div>
 
               @if (publicacionSeleccionada.categoria_id) {
                 <span class="modal-category-badge">📁 {{ obtenerNombreCategoria(publicacionSeleccionada.categoria_id) }}</span>
@@ -548,8 +560,6 @@ export interface Ciudad {
       min-width: max-content;
       margin: 0 auto;
     }
-
-
 
     .category-item {
       display: flex;
@@ -938,7 +948,7 @@ export interface Ciudad {
       transform: scale(1.08);
     }
 
-    /* GALERÍA PRINCIPAL */
+    /* GALERÍA PRINCIPAL Y ZOOM POR CLIC */
     .modal-gallery-main {
       position: relative;
       width: 100%;
@@ -946,13 +956,46 @@ export interface Ciudad {
       background: var(--bg-page);
       border-radius: 24px 24px 0 0;
       overflow: hidden;
+      cursor: zoom-in;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: height 0.3s ease, background-color 0.3s ease;
+    }
+
+    .modal-gallery-main.is-fullscreen {
+      height: 500px;
+      background: #0b0f19;
+      cursor: zoom-out;
     }
 
     .gallery-main-img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      object-position: center 30%;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain; /* Evita recortes de imagen */
       display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .gallery-main-img.zoomed {
+      transform: scale(1.5);
+    }
+
+    .zoom-hint {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      pointer-events: none;
+      backdrop-filter: blur(4px);
+      z-index: 2;
+      transition: opacity 0.2s;
     }
 
     .gallery-placeholder {
@@ -967,6 +1010,7 @@ export interface Ciudad {
       padding: 5px 14px; border-radius: 999px;
       font-size: 0.8rem; font-weight: 700;
       backdrop-filter: blur(4px);
+      z-index: 2;
     }
 
     .modal-price-badge {
@@ -976,13 +1020,7 @@ export interface Ciudad {
       font-size: 1.2rem; font-weight: 900;
       box-shadow: 0 6px 16px rgba(0,0,0,0.25);
       white-space: nowrap;
-    }
-
-    .modal-gallery-main::after {
-      content: '';
-      position: absolute; left: 0; right: 0; bottom: 0; height: 90px;
-      background: linear-gradient(to top, rgba(0,0,0,0.35), rgba(0,0,0,0));
-      pointer-events: none;
+      z-index: 2;
     }
 
     /* MINIATURAS */
@@ -1059,8 +1097,6 @@ export interface Ciudad {
     }
     .btn-whatsapp:hover { opacity: 0.9; color: #fff; }
 
-    .full-width { width: 100%; }
-
     /* RESPONSIVE */
     @media (max-width: 768px) {
       .main-content { padding: 24px 16px; }
@@ -1089,6 +1125,7 @@ export interface Ciudad {
       .features-section-wrapper { padding-top: 28px; }
 
       .modal-gallery-main { height: 240px; }
+      .modal-gallery-main.is-fullscreen { height: 360px; }
       .modal-price-badge { font-size: 1.05rem; padding: 7px 16px; bottom: 12px; right: 12px; }
       .modal-body { padding: 20px; }
       .modal-actions { flex-direction: column-reverse; }
@@ -1133,12 +1170,11 @@ export class HomeComponent implements OnInit {
   imagenSeleccionada: string | null = null;
   likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
 
-  // ID de la plataforma "WhatsApp Business" en la tabla plataformas_sociales
+  // Variable de estado para el Zoom por clic
+  isZoomed = false;
+
   private readonly PLATAFORMA_WHATSAPP_ID = '4e35d5d5-8d91-4131-8b04-dc44b5195527';
 
-  // Paleta para los íconos de categoría y avatares de destacados.
-  // Es puramente visual: NO depende de datos en la BD, así que puede
-  // cambiar sin necesidad de migraciones.
   private readonly PALETA_CATEGORIAS = [
     { bg: '#fef3c7', fg: '#92400e' },
     { bg: '#fbeaf0', fg: '#993556' },
@@ -1161,12 +1197,6 @@ export class HomeComponent implements OnInit {
     ].filter((foto): foto is string => !!foto);
   }
 
-  // Lista provisional de "destacados": empresas distintas con al menos
-  // una publicación activa, en el orden en que llegaron de la consulta
-  // (más recientes primero, porque cargarPublicaciones ordena por created_at desc).
-  // NOTA: esto NO es el sistema de "destacados pagados" de Fase 6 — ese
-  // requiere una columna/tabla propia y aún no existe. Esto es solo
-  // para que la sección tenga contenido real mientras tanto.
   get empresasDestacadas(): { id: string; nombre: string; logo: string | null }[] {
     const vistos = new Set<string>();
     const resultado: { id: string; nombre: string; logo: string | null }[] = [];
@@ -1213,6 +1243,9 @@ export class HomeComponent implements OnInit {
     await this.cargarCatalogosGeograficos();
     await this.cargarCategorias();
     await this.cargarPublicaciones();
+
+    // 🌍 Detección automática de la ubicación del usuario
+    this.detectarUbicacionUsuario();
   }
 
   async obtenerTranseunteId() {
@@ -1239,6 +1272,73 @@ export class HomeComponent implements OnInit {
 
     const resCiudades = await supabase.from('ciudades').select('id, departamento_id, nombre').order('nombre');
     this.ciudades = resCiudades.data || [];
+  }
+
+  detectarUbicacionUsuario() {
+    if (!navigator.geolocation) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+
+        try {
+          const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&accept-language=es`);
+          const data = await response.json();
+
+          if (data && data.address) {
+            const nombrePaisDetectado = data.address.country;
+            const nombreDeptoDetectado = data.address.state || data.address.region;
+            const nombreCiudadDetectado = data.address.city || data.address.town || data.address.village;
+
+            if (nombrePaisDetectado && this.paises.length > 0) {
+              const paisEncontrado = this.paises.find(p => 
+                p.nombre.toLowerCase().includes(nombrePaisDetectado.toLowerCase()) || 
+                nombrePaisDetectado.toLowerCase().includes(p.nombre.toLowerCase())
+              );
+
+              if (paisEncontrado) {
+                this.filtroPaisId = paisEncontrado.id;
+                this.onPaisChange();
+
+                if (nombreDeptoDetectado && this.departamentosFiltrados.length > 0) {
+                  const deptoEncontrado = this.departamentosFiltrados.find(d => 
+                    d.nombre.toLowerCase().includes(nombreDeptoDetectado.toLowerCase()) ||
+                    nombreDeptoDetectado.toLowerCase().includes(d.nombre.toLowerCase())
+                  );
+
+                  if (deptoEncontrado) {
+                    this.filtroDepartamentoId = deptoEncontrado.id;
+                    this.onDepartamentoChange();
+
+                    if (nombreCiudadDetectado && this.ciudadesFiltradas.length > 0) {
+                      const ciudadEncontrada = this.ciudadesFiltradas.find(c => 
+                        c.nombre.toLowerCase().includes(nombreCiudadDetectado.toLowerCase()) ||
+                        nombreCiudadDetectado.toLowerCase().includes(c.nombre.toLowerCase())
+                      );
+
+                      if (ciudadEncontrada) {
+                        this.filtroCiudadId = ciudadEncontrada.id;
+                      }
+                    }
+                  }
+                }
+
+                this.filtrarPublicaciones();
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error al geocodificar la ubicación:', error);
+        }
+      },
+      (error) => {
+        console.log('Geolocalización denegada o no disponible:', error.message);
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
   }
 
   onPaisChange() {
@@ -1280,7 +1380,6 @@ export class HomeComponent implements OnInit {
   async cargarPublicaciones() {
     this.cargando = true;
 
-    // Consulta multinivel partiendo correctamente desde la empresa hacia la ciudad, departamento y país
     const { data, error } = await this.authService.getSupabaseClient()
       .from('publicaciones')
       .select(`
@@ -1423,16 +1522,13 @@ export class HomeComponent implements OnInit {
 
     const valor = redWhatsapp.url.trim();
 
-    // Si en redes_sociales.url ya guardaron un link completo (wa.me, api.whatsapp.com, etc.)
     if (/^https?:\/\//i.test(valor)) {
       return valor;
     }
 
-    // Si no, se asume que es un número de teléfono y se construye el link
     let numero = valor.replace(/\D/g, '');
     if (!numero) return null;
 
-    // Si el número no trae indicativo de país, se asume Colombia (57)
     if (numero.length <= 10) {
       numero = '57' + numero;
     }
@@ -1446,17 +1542,24 @@ export class HomeComponent implements OnInit {
   abrirModal(pub: PublicacionConEmpresa) {
     this.publicacionSeleccionada = pub;
     this.imagenSeleccionada = pub.foto_1 || pub.foto_2 || pub.foto_3 || null;
+    this.isZoomed = false;
     document.body.style.overflow = 'hidden';
   }
 
   seleccionarImagen(foto: string) {
     this.imagenSeleccionada = foto;
+    this.isZoomed = false;
   }
 
   cerrarModal() {
     this.publicacionSeleccionada = null;
     this.imagenSeleccionada = null;
+    this.isZoomed = false;
     document.body.style.overflow = '';
+  }
+
+  toggleZoomFullscreen() {
+    this.isZoomed = !this.isZoomed;
   }
 
   @HostListener('document:keydown.escape')
