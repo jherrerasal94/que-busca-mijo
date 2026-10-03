@@ -29,6 +29,7 @@ export interface PublicacionConEmpresa {
   empresa?: {
     nombre?: string;
     direccion?: string;
+    logo?: string | null;
     ciudad_id?: string;
     redes_sociales?: RedSocial[];
     ciudad?: {
@@ -77,17 +78,17 @@ export interface Ciudad {
   template: `
     <div class="page-wrapper">
       <main class="main-content">
-        
+
         <!-- HERO SECTION -->
         <section class="hero-section">
           <div class="badge">
             ✨ ¡La plataforma que todo lo encuentra!
           </div>
-          
+
           <h1 class="hero-title">
             ¿Y usted, <span class="text-gradient">qué busca mijo?</span>
           </h1>
-          
+
           <p class="hero-subtitle">
             Explora los productos y servicios ofrecidos por empresas de tu región.<br>
             Rápido, seguro y sin intermediarios.
@@ -97,10 +98,10 @@ export interface Ciudad {
           <div class="search-container">
             <div class="search-bar">
               <span class="search-icon">🔍</span>
-              <input 
-                type="text" 
-                [(ngModel)]="searchQuery" 
-                (input)="filtrarPublicaciones()" 
+              <input
+                type="text"
+                [(ngModel)]="searchQuery"
+                (input)="filtrarPublicaciones()"
                 placeholder="¿Qué servicio o producto buscas hoy?..."
                 class="search-input"
               />
@@ -140,15 +141,19 @@ export interface Ciudad {
         <section class="categories-section">
           <div class="categories-list">
             <div class="category-item" (click)="seleccionarCategoria(null)">
-              <div class="category-icon" [class.active-cat]="!categoriaSeleccionadaId">
+              <div class="category-icon category-icon-neutral" [class.active-cat]="!categoriaSeleccionadaId">
                 🏠
               </div>
               <span class="category-name">Todas</span>
             </div>
 
-            @for (cat of categorias; track cat.id) {
+            @for (cat of categorias; track cat.id; let i = $index) {
               <div class="category-item" (click)="seleccionarCategoria(cat.id)">
-                <div class="category-icon" [class.active-cat]="categoriaSeleccionadaId === cat.id">
+                <div
+                  class="category-icon"
+                  [class.active-cat]="categoriaSeleccionadaId === cat.id"
+                  [style.background]="colorCategoria(i).bg"
+                  [style.color]="colorCategoria(i).fg">
                   {{ cat.icono || '📁' }}
                 </div>
                 <span class="category-name">{{ cat.nombre }}</span>
@@ -161,9 +166,9 @@ export interface Ciudad {
         <section class="offers-section">
           <div class="section-header">
             <div>
-              <h2 class="section-title">🛍️ Ofertas cerca de ti</h2>
+              <h2 class="section-title">🔥 Cerca de ti</h2>
               <p class="section-subtitle">
-                Descubre lo mejor de los negocios de tu región seleccionada.
+                Productos y servicios cerca de tu ubicación.
               </p>
             </div>
           </div>
@@ -186,9 +191,9 @@ export interface Ciudad {
                     } @else {
                       <div class="card-image-placeholder">🏷️</div>
                     }
-                    
-                    <button 
-                      class="btn-favorite" 
+
+                    <button
+                      class="btn-favorite"
                       [class.liked]="likesMap[pub.id]?.hasLiked"
                       (click)="$event.stopPropagation(); onToggleLike(pub.id)"
                       title="Dar Me gusta">
@@ -206,14 +211,14 @@ export interface Ciudad {
                     @if (pub.categoria_id) {
                       <span class="card-category-badge">📁 {{ obtenerNombreCategoria(pub.categoria_id) }}</span>
                     }
-                    
+
                     <div class="card-meta">
                       <span class="meta-item">❤️ {{ likesMap[pub.id]?.total || 0 }} likes</span>
                       <span class="meta-item">📍 {{ pub.empresa?.ciudad?.nombre || 'Región' }}</span>
                     </div>
-                    
+
                     <p class="business-name">🏢 {{ pub.empresa?.nombre || 'Empresa Local' }}</p>
-                    
+
                     <button class="btn-outline">
                       Ver detalle ➔
                     </button>
@@ -224,34 +229,74 @@ export interface Ciudad {
           }
         </section>
 
+        <!-- CTA PARA NEGOCIOS -->
+        <section class="business-cta-section">
+          <div class="business-cta-card">
+            <div>
+              <h3 class="business-cta-title">🏪 ¿Tienes un negocio?</h3>
+              <p class="business-cta-subtitle">Haz que tus clientes te encuentren.</p>
+            </div>
+            <a routerLink="/register" class="btn-cta-negocio">Publicar gratis</a>
+          </div>
+        </section>
+
+        <!-- NEGOCIOS DESTACADOS -->
+        @if (empresasDestacadas.length > 0) {
+          <section class="featured-section">
+            <h2 class="section-title">⭐ Negocios destacados</h2>
+            <div class="featured-list">
+              @for (emp of empresasDestacadas; track emp.id; let i = $index) {
+                <a class="featured-item" [routerLink]="['/empresa', emp.id]">
+                  @if (emp.logo) {
+                    <div class="featured-avatar featured-avatar-img-wrap">
+                      <img [src]="emp.logo" [alt]="emp.nombre" class="featured-avatar-img" />
+                    </div>
+                  } @else {
+                    <div
+                      class="featured-avatar"
+                      [style.background]="colorCategoria(i).bg"
+                      [style.color]="colorCategoria(i).fg">
+                      {{ obtenerInicialesEmpresa(emp.nombre) }}
+                    </div>
+                  }
+                  <span class="featured-name">{{ emp.nombre }}</span>
+                </a>
+              }
+            </div>
+          </section>
+        }
+
         <!-- SECCIÓN DE BENEFICIOS / FEATURES -->
-        <section class="features-section">
-          <div class="feature-item">
-            <div class="feature-icon">🛡️</div>
-            <div class="feature-text">
-              <h4>Negocios verificados</h4>
-              <p>Empresas confiables de tu región</p>
+        <section class="features-section-wrapper">
+          <h2 class="section-title features-title">¿Por qué nosotros?</h2>
+          <div class="features-section">
+            <div class="feature-item">
+              <div class="feature-icon">🛡️</div>
+              <div class="feature-text">
+                <h4>Negocios verificados</h4>
+                <p>Empresas confiables de tu región</p>
+              </div>
             </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon">📍</div>
-            <div class="feature-text">
-              <h4>Cerca de ti</h4>
-              <p>Encuentra opciones en tu zona</p>
+            <div class="feature-item">
+              <div class="feature-icon">📍</div>
+              <div class="feature-text">
+                <h4>Cerca de ti</h4>
+                <p>Encuentra opciones en tu zona</p>
+              </div>
             </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon">🤝</div>
-            <div class="feature-text">
-              <h4>Sin intermediarios</h4>
-              <p>Trato directo con el negocio</p>
+            <div class="feature-item">
+              <div class="feature-icon">🤝</div>
+              <div class="feature-text">
+                <h4>Sin intermediarios</h4>
+                <p>Trato directo con el negocio</p>
+              </div>
             </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon">🔒</div>
-            <div class="feature-text">
-              <h4>Pago seguro</h4>
-              <p>Tus datos siempre protegidos</p>
+            <div class="feature-item">
+              <div class="feature-icon">🔒</div>
+              <div class="feature-text">
+                <h4>Pago seguro</h4>
+                <p>Tus datos siempre protegidos</p>
+              </div>
             </div>
           </div>
         </section>
@@ -368,14 +413,17 @@ export interface Ciudad {
 
     /* HERO SECTION */
     .hero-section {
+      background: var(--primary);
+      border-radius: 28px;
+      padding: 56px 32px;
       text-align: center;
       margin-bottom: 40px;
     }
 
     .badge {
       display: inline-block;
-      background-color: var(--primary);
-      color: var(--accent);
+      background-color: var(--accent);
+      color: var(--primary);
       padding: 6px 16px;
       border-radius: 999px;
       font-weight: 700;
@@ -386,7 +434,7 @@ export interface Ciudad {
     .hero-title {
       font-size: clamp(2.5rem, 5vw, 3.5rem);
       font-weight: 900;
-      color: var(--primary);
+      color: #ffffff;
       margin-bottom: 16px;
       line-height: 1.1;
     }
@@ -397,7 +445,7 @@ export interface Ciudad {
 
     .hero-subtitle {
       font-size: 1.1rem;
-      color: var(--text-muted);
+      color: #b8c6dd;
       margin-bottom: 32px;
       line-height: 1.5;
     }
@@ -415,10 +463,10 @@ export interface Ciudad {
       display: flex;
       align-items: center;
       background: var(--bg-white);
-      border: 2px solid var(--primary);
+      border: 2px solid var(--bg-white);
       border-radius: 999px;
       padding: 6px 6px 6px 20px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
 
     .search-input {
@@ -468,8 +516,8 @@ export interface Ciudad {
     }
 
     .filter-select {
-      background: #f8fafc;
-      border: 1px solid #cbd5e1;
+      background: var(--bg-white);
+      border: none;
       border-radius: 12px;
       padding: 10px 12px;
       font-size: 0.9rem;
@@ -479,7 +527,7 @@ export interface Ciudad {
     }
 
     .filter-select:disabled {
-      background: #f1f5f9;
+      background: #dbe6ef;
       color: #94a3b8;
       cursor: not-allowed;
     }
@@ -489,6 +537,8 @@ export interface Ciudad {
       margin-bottom: 50px;
       overflow-x: auto;
       padding-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
     }
 
     .categories-list {
@@ -499,6 +549,8 @@ export interface Ciudad {
       margin: 0 auto;
     }
 
+
+
     .category-item {
       display: flex;
       flex-direction: column;
@@ -506,6 +558,7 @@ export interface Ciudad {
       gap: 8px;
       cursor: pointer;
       transition: transform 0.2s;
+      scroll-snap-align: start;
     }
 
     .category-item:hover {
@@ -515,19 +568,22 @@ export interface Ciudad {
     .category-icon {
       width: 60px;
       height: 60px;
-      background: var(--bg-page);
-      border-radius: 16px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.8rem;
+      font-size: 1.6rem;
       border: 2px solid transparent;
       transition: all 0.2s;
     }
 
+    .category-icon-neutral {
+      background: var(--bg-page);
+      color: var(--primary);
+    }
+
     .category-icon.active-cat {
       border-color: var(--primary);
-      background: #e0f2fe;
     }
 
     .category-name {
@@ -693,13 +749,118 @@ export interface Ciudad {
       background: #f4f8f1;
     }
 
+    /* CTA NEGOCIOS */
+    .business-cta-section {
+      margin-bottom: 50px;
+    }
+
+    .business-cta-card {
+      background: #eaf3de;
+      border-radius: 20px;
+      padding: 28px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .business-cta-title {
+      margin: 0 0 4px 0;
+      color: var(--primary);
+      font-size: 1.2rem;
+    }
+
+    .business-cta-subtitle {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .btn-cta-negocio {
+      background: var(--primary);
+      color: #ffffff;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+
+    .btn-cta-negocio:hover {
+      opacity: 0.9;
+    }
+
+    /* DESTACADOS */
+    .featured-section {
+      margin-bottom: 50px;
+    }
+
+    .featured-list {
+      display: flex;
+      gap: 24px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: x proximity;
+    }
+
+    .featured-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      flex-shrink: 0;
+      scroll-snap-align: start;
+    }
+
+    .featured-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .featured-avatar-img-wrap {
+      background: var(--bg-page);
+      overflow: hidden;
+    }
+
+    .featured-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .featured-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+
     /* FEATURES BOTTOM */
+    .features-section-wrapper {
+      padding-top: 40px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .features-title {
+      margin-bottom: 20px;
+    }
+
     .features-section {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 20px;
-      padding-top: 40px;
-      border-top: 1px solid #e2e8f0;
     }
 
     .feature-item {
@@ -902,12 +1063,30 @@ export interface Ciudad {
 
     /* RESPONSIVE */
     @media (max-width: 768px) {
+      .main-content { padding: 24px 16px; }
+
+      .hero-section { padding: 32px 20px; border-radius: 20px; margin-bottom: 28px; }
+      .hero-title { font-size: clamp(1.8rem, 7vw, 3rem); }
+      .hero-subtitle { font-size: 0.95rem; margin-bottom: 24px; }
       .search-bar { padding: 4px 4px 4px 16px; }
       .search-input { font-size: 0.9rem; }
       .btn-buscar { padding: 10px 20px; }
+
+      .categories-section { margin-bottom: 32px; }
       .categories-list { justify-content: flex-start; }
-      .section-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+      .category-icon { width: 52px; height: 52px; font-size: 1.4rem; }
+
+      .section-header { flex-direction: column; align-items: flex-start; gap: 10px; margin-bottom: 18px; }
       .filters-row { grid-template-columns: 1fr; }
+      .cards-grid { gap: 16px; margin-bottom: 36px; }
+
+      .business-cta-section { margin-bottom: 32px; }
+      .business-cta-card { flex-direction: column; align-items: flex-start; text-align: left; padding: 22px 20px; }
+      .btn-cta-negocio { width: 100%; text-align: center; }
+
+      .featured-section { margin-bottom: 32px; }
+
+      .features-section-wrapper { padding-top: 28px; }
 
       .modal-gallery-main { height: 240px; }
       .modal-price-badge { font-size: 1.05rem; padding: 7px 16px; bottom: 12px; right: 12px; }
@@ -915,6 +1094,14 @@ export interface Ciudad {
       .modal-actions { flex-direction: column-reverse; }
       .modal-actions .btn-primary,
       .modal-actions .btn-whatsapp { flex: none; }
+    }
+
+    @media (max-width: 380px) {
+      .hero-section { padding: 24px 16px; }
+      .badge { font-size: 0.75rem; padding: 5px 12px; }
+      .search-bar { padding: 4px 4px 4px 12px; flex-wrap: wrap; }
+      .btn-buscar { width: 100%; padding: 10px; margin-top: 4px; }
+      .card-image-container { height: 170px; }
     }
   `]
 })
@@ -926,7 +1113,7 @@ export class HomeComponent implements OnInit {
   transeunteId: string = '';
   publicaciones: PublicacionConEmpresa[] = [];
   publicacionesFiltradas: PublicacionConEmpresa[] = [];
-  
+
   categorias: Categoria[] = [];
   paises: Pais[] = [];
   departamentos: Departamento[] = [];
@@ -937,7 +1124,7 @@ export class HomeComponent implements OnInit {
   cargando = true;
   searchQuery = '';
   categoriaSeleccionadaId: string | null = null;
-  
+
   filtroPaisId = '';
   filtroDepartamentoId = '';
   filtroCiudadId = '';
@@ -949,6 +1136,22 @@ export class HomeComponent implements OnInit {
   // ID de la plataforma "WhatsApp Business" en la tabla plataformas_sociales
   private readonly PLATAFORMA_WHATSAPP_ID = '4e35d5d5-8d91-4131-8b04-dc44b5195527';
 
+  // Paleta para los íconos de categoría y avatares de destacados.
+  // Es puramente visual: NO depende de datos en la BD, así que puede
+  // cambiar sin necesidad de migraciones.
+  private readonly PALETA_CATEGORIAS = [
+    { bg: '#fef3c7', fg: '#92400e' },
+    { bg: '#fbeaf0', fg: '#993556' },
+    { bg: '#eaf3de', fg: '#3b6d11' },
+    { bg: '#e6f1fb', fg: '#185fa5' },
+    { bg: '#eeedfe', fg: '#534ab7' },
+    { bg: '#faece7', fg: '#993c1d' },
+  ];
+
+  colorCategoria(index: number): { bg: string; fg: string } {
+    return this.PALETA_CATEGORIAS[index % this.PALETA_CATEGORIAS.length];
+  }
+
   get fotosPublicacionSeleccionada(): string[] {
     if (!this.publicacionSeleccionada) return [];
     return [
@@ -956,6 +1159,39 @@ export class HomeComponent implements OnInit {
       this.publicacionSeleccionada.foto_2,
       this.publicacionSeleccionada.foto_3
     ].filter((foto): foto is string => !!foto);
+  }
+
+  // Lista provisional de "destacados": empresas distintas con al menos
+  // una publicación activa, en el orden en que llegaron de la consulta
+  // (más recientes primero, porque cargarPublicaciones ordena por created_at desc).
+  // NOTA: esto NO es el sistema de "destacados pagados" de Fase 6 — ese
+  // requiere una columna/tabla propia y aún no existe. Esto es solo
+  // para que la sección tenga contenido real mientras tanto.
+  get empresasDestacadas(): { id: string; nombre: string; logo: string | null }[] {
+    const vistos = new Set<string>();
+    const resultado: { id: string; nombre: string; logo: string | null }[] = [];
+
+    for (const pub of this.publicaciones) {
+      if (!pub.empresa_id || vistos.has(pub.empresa_id)) continue;
+      vistos.add(pub.empresa_id);
+      resultado.push({
+        id: pub.empresa_id,
+        nombre: pub.empresa?.nombre || 'Negocio local',
+        logo: pub.empresa?.logo || null
+      });
+      if (resultado.length >= 6) break;
+    }
+
+    return resultado;
+  }
+
+  obtenerInicialesEmpresa(nombre: string): string {
+    return nombre
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(p => p[0].toUpperCase())
+      .join('');
   }
 
   async ngOnInit() {
@@ -1043,7 +1279,7 @@ export class HomeComponent implements OnInit {
 
   async cargarPublicaciones() {
     this.cargando = true;
-    
+
     // Consulta multinivel partiendo correctamente desde la empresa hacia la ciudad, departamento y país
     const { data, error } = await this.authService.getSupabaseClient()
       .from('publicaciones')
@@ -1052,6 +1288,7 @@ export class HomeComponent implements OnInit {
         empresa:empresas (
           nombre,
           direccion,
+          logo,
           ciudad_id,
           redes_sociales (
             url,
@@ -1128,7 +1365,7 @@ export class HomeComponent implements OnInit {
     const query = this.searchQuery.toLowerCase().trim();
 
     this.publicacionesFiltradas = this.publicaciones.filter(pub => {
-      const cumpleQuery = !query || 
+      const cumpleQuery = !query ||
         pub.servicio_producto.toLowerCase().includes(query) ||
         (pub.descripcion && pub.descripcion.toLowerCase().includes(query)) ||
         (pub.empresa?.nombre && pub.empresa.nombre.toLowerCase().includes(query)) ||
