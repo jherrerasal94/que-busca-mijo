@@ -25,57 +25,106 @@ export interface EmpresaInfo {
   template: `
     <nav class="navbar">
       <div class="navbar-container">
-        
-        <!-- BRAND / LOGO EXACTO -->
-        <div 
-          routerLink="/" 
+
+        <!-- BRAND / LOGO -->
+        <div
+          routerLink="/"
           class="brand-logo"
           tabindex="0"
           (click)="cerrarMenu()">
-          <img 
-            src="assets/logo.png" 
-            alt="Logo QBM" 
+          <img
+            src="assets/logo.png"
+            alt="Logo QBM"
             class="logo-img">
           <span class="brand-text">
             ¿Qué Busca <span class="brand-accent">Mijo?</span>
           </span>
         </div>
 
-        <!-- BOTÓN DESPLEGABLE / MENÚ INTERACTIVO -->
-        <div class="menu-wrapper">
-          
-          <!-- Botón Activador del Menú -->
-          <button 
-            class="menu-trigger" 
+        <!-- NAV LINKS: solo visibles en escritorio -->
+        <div class="nav-links">
+          <a routerLink="/" routerLinkActive="nav-link-active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">Explorar</a>
+          <a routerLink="/" class="nav-link">Categorías</a>
+          <a routerLink="/" class="nav-link">Negocios</a>
+          <a routerLink="/" class="nav-link">Ofertas</a>
+        </div>
+
+        <div class="nav-right">
+
+          @if (user) {
+            <!-- TRIGGER DE CUENTA: solo visible en escritorio cuando hay sesión -->
+            <button
+              class="menu-trigger avatar-trigger"
+              [class.active]="menuAbierto"
+              [class.trigger-empresa]="userRole === 'empresa'"
+              [class.trigger-admin]="userRole === 'admin'"
+              (click)="toggleMenu()"
+              aria-label="Abrir menú de usuario">
+
+              <div class="user-avatar-badge">
+                @if (userRole === 'empresa' && empresaInfo?.logo) {
+                  <img [src]="empresaInfo!.logo!" [alt]="empresaInfo?.nombre || 'Logo empresa'" class="avatar-logo-img" />
+                } @else {
+                  <span>{{ user.email?.charAt(0)?.toUpperCase() || '👤' }}</span>
+                }
+              </div>
+
+              <span class="menu-label">
+                {{ (user.email | slice:0:12) }}...
+              </span>
+
+              <svg class="chevron-icon" [class.rotate]="menuAbierto" viewBox="0 0 24 24" width="18" height="18">
+                <path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
+              </svg>
+            </button>
+          } @else {
+            <!-- ACCIONES DE INVITADO: solo visibles en escritorio -->
+            <div class="guest-actions-desktop">
+              <a routerLink="/planes" class="btn-publicar">📢 Quiero publicar</a>
+              <a routerLink="/login" class="link-login">Iniciar sesión</a>
+              <a routerLink="/register" class="btn-register-exact">Registrarse</a>
+            </div>
+          }
+
+          <!-- HAMBURGUESA: solo visible en móvil, para cualquier estado de sesión -->
+          <button
+            class="hamburger-trigger"
             [class.active]="menuAbierto"
             (click)="toggleMenu()"
-            aria-label="Abrir menú de usuario">
-            
-            <div class="user-avatar-badge">
-              @if (userRole === 'empresa' && empresaInfo?.logo) {
-                <img [src]="empresaInfo!.logo!" [alt]="empresaInfo?.nombre || 'Logo empresa'" class="avatar-logo-img" />
-              } @else if (user) {
-                <span>{{ user.email?.charAt(0)?.toUpperCase() || '👤' }}</span>
-              } @else {
-                <span>👤</span>
-              }
-            </div>
-
-            <span class="menu-label">
-              {{ user ? (user.email | slice:0:12) + '...' : 'Menú' }}
-            </span>
-
-            <svg class="chevron-icon" [class.rotate]="menuAbierto" viewBox="0 0 24 24" width="18" height="18">
-              <path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/>
-            </svg>
+            aria-label="Abrir menú de navegación">
+            <span class="hamburger-icon">{{ menuAbierto ? '✕' : '☰' }}</span>
           </button>
 
-          <!-- DESPLEGABLE / MENU FLOTANTE (FLYOUT MODERNO) -->
+          <!-- PANEL DESPLEGABLE (FLYOUT) -->
           @if (menuAbierto) {
-            <div class="dropdown-panel animate-pop">
-              
-              <!-- Encabezado de Sesión si está autenticado -->
+            <div
+              class="dropdown-panel animate-pop"
+              [class.panel-empresa]="userRole === 'empresa'"
+              [class.panel-admin]="userRole === 'admin'">
+
+              <!-- Enlaces de navegación: solo se ven cuando el panel se abrió desde la hamburguesa (móvil) -->
+              <div class="mobile-nav-links">
+                <a routerLink="/" routerLinkActive="active-item" [routerLinkActiveOptions]="{ exact: true }" class="dropdown-item" (click)="cerrarMenu()">
+                  <span class="item-icon">🔎</span>
+                  <span>Explorar</span>
+                </a>
+                <a routerLink="/" class="dropdown-item" (click)="cerrarMenu()">
+                  <span class="item-icon">📁</span>
+                  <span>Categorías</span>
+                </a>
+                <a routerLink="/" class="dropdown-item" (click)="cerrarMenu()">
+                  <span class="item-icon">🏪</span>
+                  <span>Negocios</span>
+                </a>
+                <a routerLink="/" class="dropdown-item" (click)="cerrarMenu()">
+                  <span class="item-icon">🏷️</span>
+                  <span>Ofertas</span>
+                </a>
+                <div class="dropdown-divider"></div>
+              </div>
+
               @if (user) {
+                <!-- Encabezado de sesión -->
                 <div class="dropdown-header">
                   <div class="user-info">
                     <span class="user-role-badge" [class.empresa]="userRole === 'empresa'" [class.admin]="userRole === 'admin'">
@@ -91,63 +140,48 @@ export interface EmpresaInfo {
                   </div>
                 </div>
                 <div class="dropdown-divider"></div>
-              }
 
-              <!-- Opciones de Navegación -->
-              <div class="dropdown-body">
-                
-                <a routerLink="/" 
-                   routerLinkActive="active-item" 
-                   [routerLinkActiveOptions]="{ exact: true }" 
-                   class="dropdown-item" 
-                   (click)="cerrarMenu()">
-                  <span class="item-icon">🏠</span>
-                  <span>Inicio</span>
-                </a>
+                <div class="dropdown-body">
 
-                <!-- ENLACE PÚBLICO DE PLANES -->
-                <a routerLink="/planes" 
-                   routerLinkActive="active-item" 
-                   class="dropdown-item" 
-                   (click)="cerrarMenu()">
-                  <span class="item-icon">💎</span>
-                  <span>Planes para Empresas</span>
-                </a>
+                  <a routerLink="/planes"
+                     routerLinkActive="active-item"
+                     class="dropdown-item"
+                     (click)="cerrarMenu()">
+                    <span class="item-icon">💎</span>
+                    <span>Planes para Empresas</span>
+                  </a>
 
-                @if (user) {
-                  <!-- Opción Exclusiva Empresa -->
                   @if (userRole === 'empresa') {
-                    <a routerLink="/mis-publicaciones" 
-                       routerLinkActive="active-item" 
-                       class="dropdown-item empresa-item" 
+                    <a routerLink="/mis-publicaciones"
+                       routerLinkActive="active-item"
+                       class="dropdown-item empresa-item"
                        (click)="cerrarMenu()">
                       <span class="item-icon">📢</span>
                       <span>Gestionar Publicaciones</span>
                     </a>
                   }
 
-                  <!-- Opción Exclusiva Administrador: Gestionar Categorías -->
                   @if (userRole === 'admin') {
-                    <a routerLink="/admin/categorias" 
-                       routerLinkActive="active-item" 
-                       class="dropdown-item admin-item" 
+                    <a routerLink="/admin/categorias"
+                       routerLinkActive="active-item"
+                       class="dropdown-item admin-item"
                        (click)="cerrarMenu()">
                       <span class="item-icon">📁</span>
                       <span>Gestionar Categorías</span>
                     </a>
 
-                    <a routerLink="/admin-planes" 
-                       routerLinkActive="active-item" 
-                       class="dropdown-item admin-item" 
+                    <a routerLink="/admin-planes"
+                       routerLinkActive="active-item"
+                       class="dropdown-item admin-item"
                        (click)="cerrarMenu()">
                       <span class="item-icon">📋</span>
                       <span>Administrar Solicitudes</span>
                     </a>
                   }
 
-                  <a routerLink="/perfil" 
-                     routerLinkActive="active-item" 
-                     class="dropdown-item" 
+                  <a routerLink="/perfil"
+                     routerLinkActive="active-item"
+                     class="dropdown-item"
                      (click)="cerrarMenu()">
                     <span class="item-icon">⚙️</span>
                     <span>Mi Perfil</span>
@@ -155,18 +189,26 @@ export interface EmpresaInfo {
 
                   <div class="dropdown-divider"></div>
 
-                  <!-- Botón Cerrar Sesión -->
                   <button (click)="logout()" class="dropdown-item logout-item">
                     <span class="item-icon">🚪</span>
                     <span>Cerrar Sesión</span>
                   </button>
 
-                } @else {
+                </div>
+              } @else {
+                <!-- Solo se ve cuando el panel se abre desde la hamburguesa, en móvil -->
+                <div class="dropdown-body">
+                  <a routerLink="/planes"
+                     routerLinkActive="active-item"
+                     class="dropdown-item publicar-item"
+                     (click)="cerrarMenu()">
+                    <span class="item-icon">📢</span>
+                    <span>Quiero publicar</span>
+                  </a>
 
-                  <!-- Opciones para Invitados -->
-                  <a routerLink="/login" 
-                     routerLinkActive="active-item" 
-                     class="dropdown-item" 
+                  <a routerLink="/login"
+                     routerLinkActive="active-item"
+                     class="dropdown-item"
                      (click)="cerrarMenu()">
                     <span class="item-icon">🔑</span>
                     <span>Iniciar Sesión</span>
@@ -174,13 +216,11 @@ export interface EmpresaInfo {
 
                   <div class="dropdown-divider"></div>
 
-                  <!-- Botón Estilo Píldora para Registro dentro del Menú -->
                   <a routerLink="/register" class="btn-register-exact" (click)="cerrarMenu()">
                     Registrarse
                   </a>
-
-                }
-              </div>
+                </div>
+              }
 
             </div>
           }
@@ -210,6 +250,7 @@ export interface EmpresaInfo {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 24px;
     }
 
     /* LOGO & MARCA */
@@ -220,6 +261,7 @@ export interface EmpresaInfo {
       cursor: pointer;
       outline: none;
       user-select: none;
+      flex-shrink: 0;
     }
 
     .logo-img {
@@ -240,12 +282,88 @@ export interface EmpresaInfo {
       -webkit-text-stroke: 0.5px var(--primary, #002b66);
     }
 
-    /* DESPLEGABLE / MENU TRIGGER */
-    .menu-wrapper {
-      position: relative;
+    /* NAV LINKS (ESCRITORIO) */
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      flex: 1;
     }
 
-    .menu-trigger {
+    .nav-link {
+      text-decoration: none;
+      color: #002b66;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 6px 2px;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .nav-link:hover {
+      color: #65a30d;
+    }
+
+    .nav-link-active {
+      border-bottom-color: #62d600;
+    }
+
+    /* ACCIONES / TRIGGERS A LA DERECHA */
+    .nav-right {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .guest-actions-desktop {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .link-login {
+      text-decoration: none;
+      color: #002b66;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+
+    .link-login:hover {
+      color: #65a30d;
+    }
+
+    /* CTA "QUIERO PUBLICAR" */
+    .btn-publicar {
+      text-decoration: none;
+      color: #002b66;
+      background: #eaf3de;
+      font-weight: 800;
+      font-size: 0.9rem;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      border: 1.5px solid #c3dba3;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn-publicar:hover {
+      background: #ddedc7;
+      transform: translateY(-1px);
+    }
+
+    .dropdown-item.publicar-item {
+      color: #3b6d11;
+      background-color: #eaf3de;
+    }
+
+    .dropdown-item.publicar-item:hover {
+      background-color: #ddedc7;
+    }
+
+    /* TRIGGER DE AVATAR (ESCRITORIO, CON SESIÓN) */
+    .avatar-trigger {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -258,15 +376,37 @@ export interface EmpresaInfo {
       box-shadow: 0 3px 0px #002b66;
     }
 
-    .menu-trigger:hover, .menu-trigger.active {
+    .avatar-trigger:hover, .avatar-trigger.active {
       background: #ffffff;
       transform: translateY(-1px);
       box-shadow: 0 4px 0px #002b66;
     }
 
-    .menu-trigger:active {
+    .avatar-trigger:active {
       transform: translateY(2px);
       box-shadow: 0 1px 0px #002b66;
+    }
+
+    /* Tinte del trigger según tipo de cuenta: blanco/verde (transeúnte, default),
+       azul (empresa), gris (admin). */
+    .avatar-trigger.trigger-empresa {
+      background: #e6f1fb;
+      border-color: #185fa5;
+      box-shadow: 0 3px 0px #185fa5;
+    }
+    .avatar-trigger.trigger-empresa:hover,
+    .avatar-trigger.trigger-empresa.active {
+      box-shadow: 0 4px 0px #185fa5;
+    }
+
+    .avatar-trigger.trigger-admin {
+      background: #eef1f5;
+      border-color: #475569;
+      box-shadow: 0 3px 0px #475569;
+    }
+    .avatar-trigger.trigger-admin:hover,
+    .avatar-trigger.trigger-admin.active {
+      box-shadow: 0 4px 0px #475569;
     }
 
     .user-avatar-badge {
@@ -282,6 +422,7 @@ export interface EmpresaInfo {
       font-size: 0.95rem;
       border: 1.5px solid #042456;
       overflow: hidden;
+      flex-shrink: 0;
     }
 
     .avatar-logo-img {
@@ -295,15 +436,36 @@ export interface EmpresaInfo {
       font-weight: 800;
       color: #002b66;
       font-size: 0.95rem;
+      white-space: nowrap;
     }
 
     .chevron-icon {
       color: #002b66;
       transition: transform 0.25s ease;
+      flex-shrink: 0;
     }
 
     .chevron-icon.rotate {
       transform: rotate(180deg);
+    }
+
+    /* HAMBURGUESA (MÓVIL) */
+    .hamburger-trigger {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      background: #f4f8f1;
+      border: 2px solid #002b66;
+      border-radius: 14px;
+      cursor: pointer;
+    }
+
+    .hamburger-icon {
+      font-size: 1.3rem;
+      color: #002b66;
+      line-height: 1;
     }
 
     /* DROPDOWN PANEL (FLYOUT FLOTANTE) */
@@ -311,13 +473,34 @@ export interface EmpresaInfo {
       position: absolute;
       top: calc(100% + 12px);
       right: 0;
-      width: 260px;
+      width: 280px;
       background: #ffffff;
       border: 2px solid #002b66;
       border-radius: 20px;
       box-shadow: 0 12px 30px rgba(0, 43, 102, 0.15);
       padding: 12px;
       z-index: 1100;
+      transition: background-color 0.15s ease;
+    }
+
+    /* Mismo código de color que el trigger: blanco (transeúnte/invitado),
+       azul (empresa), gris (admin). */
+    .dropdown-panel.panel-empresa {
+      background: #e6f1fb;
+      border-color: #185fa5;
+    }
+
+    .dropdown-panel.panel-admin {
+      background: #eef1f5;
+      border-color: #475569;
+    }
+
+    /* Los enlaces de navegación dentro del panel solo son relevantes en móvil;
+       en escritorio ya están visibles en la barra, así que se ocultan aquí. */
+    @media (min-width: 769px) {
+      .mobile-nav-links {
+        display: none;
+      }
     }
 
     /* ANIMACIÓN ENTRADA */
@@ -464,7 +647,7 @@ export interface EmpresaInfo {
       font-size: 1.1rem;
     }
 
-    /* BOTÓN REGISTRARSE IDENTICO A TU ESTILO */
+    /* BOTÓN REGISTRARSE */
     .btn-register-exact {
       background-color: #62d600;
       color: #042456;
@@ -480,6 +663,13 @@ export interface EmpresaInfo {
       justify-content: center;
       transition: all 0.15s ease;
       cursor: pointer;
+    }
+
+    .guest-actions-desktop .btn-register-exact {
+      padding: 8px 18px;
+    }
+
+    .dropdown-body .btn-register-exact {
       margin-top: 4px;
     }
 
@@ -490,19 +680,40 @@ export interface EmpresaInfo {
     }
 
     /* RESPONSIVO */
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+
+      .avatar-trigger,
+      .guest-actions-desktop {
+        display: none;
+      }
+
+      .hamburger-trigger {
+        display: flex;
+      }
+
+      /* Anclado directamente a los bordes del viewport (no al botón que lo abre),
+         con márgenes simétricos garantizados — evita que la esquina redondeada
+         quede recortada contra el borde de la pantalla. */
+      .dropdown-panel {
+        position: fixed;
+        top: 82px;
+        left: 16px;
+        right: 16px;
+        width: auto;
+        max-height: calc(100vh - 98px);
+        overflow-y: auto;
+      }
+    }
+
     @media (max-width: 480px) {
       .brand-text {
         font-size: 1.15rem;
       }
       .logo-img {
         height: 40px;
-      }
-      .menu-label {
-        display: none;
-      }
-      .dropdown-panel {
-        width: calc(100vw - 32px);
-        right: -10px;
       }
     }
   `]

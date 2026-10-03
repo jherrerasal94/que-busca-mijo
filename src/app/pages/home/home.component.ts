@@ -407,6 +407,12 @@ export interface Ciudad {
       font-family: 'Segoe UI', Roboto, sans-serif;
     }
 
+    /* Evita que padding + width:100% desborde el contenedor (causa real
+       de los botones "deformados" en mobile: Buscar y Publicar gratis). */
+    * {
+      box-sizing: border-box;
+    }
+
     .page-wrapper {
       background-color: var(--bg-white);
       min-height: calc(100vh - 78px);
@@ -483,6 +489,7 @@ export interface Ciudad {
 
     .search-input {
       flex: 1;
+      min-width: 0;
       border: none;
       outline: none;
       font-size: 1rem;
@@ -504,6 +511,8 @@ export interface Ciudad {
       font-size: 1rem;
       cursor: pointer;
       transition: opacity 0.2s;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
 
     .btn-buscar:hover {
@@ -788,6 +797,7 @@ export interface Ciudad {
     }
 
     .btn-cta-negocio {
+      display: inline-block;
       background: var(--primary);
       color: #ffffff;
       text-decoration: none;
@@ -1133,11 +1143,24 @@ export interface Ciudad {
       .modal-actions .btn-whatsapp { flex: none; }
     }
 
-    @media (max-width: 380px) {
+    @media (max-width: 480px) {
       .hero-section { padding: 24px 16px; }
       .badge { font-size: 0.75rem; padding: 5px 12px; }
-      .search-bar { padding: 4px 4px 4px 12px; flex-wrap: wrap; }
-      .btn-buscar { width: 100%; padding: 10px; margin-top: 4px; }
+
+      .search-bar {
+        flex-wrap: wrap;
+        justify-content: center;
+        padding: 10px 14px;
+        gap: 8px;
+      }
+      .search-input {
+        flex: 1 1 100%;
+      }
+      .btn-buscar {
+        width: auto;
+        padding: 10px 36px;
+      }
+
       .card-image-container { height: 170px; }
     }
   `]
