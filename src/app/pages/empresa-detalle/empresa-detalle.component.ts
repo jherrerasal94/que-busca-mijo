@@ -389,23 +389,37 @@ export class EmpresaDetalleComponent implements OnInit {
   pubSeleccionadaModal: PublicacionConEmpresa | null = null;
 
   async ngOnInit() {
-    this.empresaId = this.route.snapshot.paramMap.get('id');
-    
+    // Esta página se sirve desde dos rutas distintas: /empresa/:id (UUID,
+    // usado internamente) y /miempresa/:alias (amigable, para compartir).
+    // Solo uno de los dos parámetros estará presente según cuál ruta matcheó.
+    const idParam = this.route.snapshot.paramMap.get('id');
+    const aliasParam = this.route.snapshot.paramMap.get('alias');
+
     const user = await this.authService.getUser();
     if (user) {
       const { data } = await this.authService.getSupabaseClient().from('transeuntes').select('id').eq('id', user.id).maybeSingle();
       if (data) this.transeunteId = data.id;
     }
 
-    if (this.empresaId) {
-      await this.cargarDatosEmpresa();
+    if (idParam) {
+      await this.cargarDatosEmpresa('id', idParam);
+    } else if (aliasParam) {
+      await this.cargarDatosEmpresa('alias', aliasParam);
+    }
+
+    if (this.empresa) {
+      // IMPORTANTE: a partir de aquí usamos siempre el id real de la fila
+      // (this.empresa.id), sin importar si llegamos por id o por alias,
+      // porque redes_sociales y publicaciones filtran por empresa_id (uuid).
+      this.empresaId = this.empresa.id;
       await this.cargarRedesSociales();
       await this.cargarPublicacionesDeEmpresa();
     }
+
     this.cargando = false;
   }
 
-  async cargarDatosEmpresa() {
+  async cargarDatosEmpresa(campo: 'id' | 'alias', valor: string) {
     const { data, error } = await this.authService.getSupabaseClient()
       .from('empresas')
       .select(`
@@ -417,7 +431,7 @@ export class EmpresaDetalleComponent implements OnInit {
           )
         )
       `)
-      .eq('id', this.empresaId)
+      .eq(campo, valor)
       .maybeSingle();
 
     if (!error && data) {

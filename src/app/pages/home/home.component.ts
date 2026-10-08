@@ -1,75 +1,22 @@
 import { Component, OnInit, HostListener, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
+import {
+  PublicacionesService,
+  PublicacionConEmpresa,
+  Categoria,
+  Pais,
+  Departamento,
+  Ciudad,
+  RedSocial
+} from '../../core/services/publicaciones.service';
 import { User } from '@supabase/supabase-js';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
-export interface RedSocial {
-  id: string;
-  empresa_id: string;
-  plataforma?: string | null;
-  plataforma_id?: string | null;
-  url: string;
-}
-
-export interface PublicacionConEmpresa {
-  id: string;
-  empresa_id: string;
-  categoria_id: string | null;
-  servicio_producto: string;
-  precio: number | null;
-  descripcion: string | null;
-  foto_1: string | null;
-  foto_2: string | null;
-  foto_3: string | null;
-  created_at: string;
-  empresa?: {
-    nombre?: string;
-    direccion?: string;
-    logo?: string | null;
-    ciudad_id?: string;
-    redes_sociales?: RedSocial[];
-    ciudad?: {
-      id?: string;
-      nombre?: string;
-      departamento?: {
-        id?: string;
-        nombre?: string;
-        pais?: {
-          id?: string;
-          nombre?: string;
-        };
-      };
-    };
-  };
-}
-
-export interface Categoria {
-  id: string;
-  nombre: string;
-  icono?: string;
-  estado: string;
-}
-
-export interface Pais {
-  id: string;
-  nombre: string;
-}
-
-export interface Departamento {
-  id: string;
-  pais_id: string;
-  nombre: string;
-}
-
-export interface Ciudad {
-  id: string;
-  departamento_id: string;
-  nombre: string;
-}
+export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedSocial };
 
 @Component({
   selector: 'app-home',
@@ -102,13 +49,14 @@ export interface Ciudad {
                 type="text"
                 [(ngModel)]="searchQuery"
                 (input)="filtrarPublicaciones()"
+                (keydown.enter)="buscarEnResultados()"
                 placeholder="¿Qué servicio o producto buscas hoy?..."
                 class="search-input"
               />
               @if (searchQuery || categoriaSeleccionadaId || filtroPaisId || filtroDepartamentoId || filtroCiudadId) {
                 <button (click)="limpiarBuscador()" class="btn-clear" title="Limpiar filtros">✕</button>
               }
-              <button class="btn-buscar">Buscar</button>
+              <button (click)="buscarEnResultados()" class="btn-buscar">Buscar</button>
             </div>
 
             <!-- FILTROS GEOGRÁFICOS EN CASCADA -->
@@ -185,7 +133,7 @@ export interface Ciudad {
             <div class="cards-grid">
               @for (pub of publicacionesFiltradas; track pub.id) {
                 <div class="card" (click)="abrirModal(pub)">
-                  <div class="card-image-container">
+                  <div class="card-image-container" [style.--bg-img]="pub.foto_1 ? 'url(' + pub.foto_1 + ')' : null">
                     @if (pub.foto_1) {
                       <img [src]="pub.foto_1" [alt]="pub.servicio_producto" class="card-image" />
                     } @else {
@@ -219,9 +167,12 @@ export interface Ciudad {
 
                     <p class="business-name">🏢 {{ pub.empresa?.nombre || 'Empresa Local' }}</p>
 
-                    <button class="btn-outline">
-                      Ver detalle ➔
-                    </button>
+                    <!-- BOTÓN OCULTO QUE APARECE EN HOVER SIN MOVER LA TARJETA -->
+                    <div class="card-hover-action">
+                      <button class="btn-outline">
+                        Ver detalle ➔
+                      </button>
+                    </div>
                   </div>
                 </div>
               }
@@ -342,16 +293,17 @@ export interface Ciudad {
               }
             </div>
 
-            <!-- MINIATURAS -->
+            <!-- MINIATURAS (Muestra foto_1, foto_2 y foto_3 si están disponibles) -->
             @if (fotosPublicacionSeleccionada.length > 1) {
               <div class="modal-thumbnails">
-                @for (foto of fotosPublicacionSeleccionada; track foto) {
+                @for (foto of fotosPublicacionSeleccionada; track foto; let idx = $index) {
                   <button
                     type="button"
                     class="thumbnail-btn"
                     [class.active]="foto === imagenSeleccionada"
-                    (click)="seleccionarImagen(foto)">
-                    <img [src]="foto" alt="Miniatura de la publicación" />
+                    (click)="seleccionarImagen(foto)"
+                    [title]="'Ver foto ' + (idx + 1)">
+                    <img [src]="foto" [alt]="'Miniatura ' + (idx + 1)" />
                   </button>
                 }
               </div>
@@ -407,8 +359,6 @@ export interface Ciudad {
       font-family: 'Segoe UI', Roboto, sans-serif;
     }
 
-    /* Evita que padding + width:100% desborde el contenedor (causa real
-       de los botones "deformados" en mobile: Buscar y Publicar gratis). */
     * {
       box-sizing: border-box;
     }
@@ -638,33 +588,66 @@ export interface Ciudad {
       margin-bottom: 60px;
     }
 
+    /* TARJETA CON TAMAÑO FIJO ESTRICTO PARA EVITAR SALTOS EN LA PÁGINA */
     .card {
       background: var(--bg-white);
       border-radius: 20px;
       border: 1px solid #e2e8f0;
       overflow: hidden;
       cursor: pointer;
-      transition: box-shadow 0.2s, transform 0.2s;
+      height: 400px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: box-shadow 0.3s ease;
     }
 
     .card:hover {
-      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-      transform: translateY(-4px);
+      box-shadow: 0 14px 30px rgba(0,0,0,0.12);
     }
 
     .card-image-container {
       position: relative;
-      height: 200px;
-      background: var(--bg-page);
+      height: 210px;
+      background: #0f172a;
+      overflow: hidden;
+      transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      flex-shrink: 0;
+    }
+
+    .card:hover .card-image-container {
+      height: 165px;
+    }
+
+    .card-image-container::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: var(--bg-img);
+      background-size: cover;
+      background-position: center;
+      filter: blur(14px) brightness(0.75);
+      transform: scale(1.2);
+      z-index: 1;
     }
 
     .card-image {
+      position: relative;
+      z-index: 2;
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain;
+      display: block;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .card:hover .card-image {
+      transform: scale(1.06);
     }
 
     .card-image-placeholder {
+      position: relative;
+      z-index: 2;
       width: 100%;
       height: 100%;
       display: flex;
@@ -688,6 +671,7 @@ export interface Ciudad {
       align-items: center;
       justify-content: center;
       transition: transform 0.2s;
+      z-index: 3;
     }
 
     .btn-favorite:hover {
@@ -708,10 +692,16 @@ export interface Ciudad {
       padding: 6px 14px;
       border-radius: 12px;
       font-size: 0.95rem;
+      z-index: 3;
     }
 
     .card-content {
-      padding: 20px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      position: relative;
+      overflow: hidden;
     }
 
     .card-title {
@@ -732,7 +722,8 @@ export interface Ciudad {
       background: #e0f2fe;
       padding: 2px 6px;
       border-radius: 4px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
+      align-self: flex-start;
     }
 
     .card-meta {
@@ -740,25 +731,43 @@ export interface Ciudad {
       gap: 16px;
       font-size: 0.85rem;
       color: var(--text-muted);
-      margin-bottom: 8px;
+      margin-bottom: 6px;
     }
 
     .business-name {
       font-size: 0.9rem;
       color: var(--text-main);
       font-weight: 600;
-      margin: 0 0 16px 0;
+      margin: 0;
+    }
+
+    .card-hover-action {
+      position: absolute;
+      bottom: 14px;
+      left: 20px;
+      right: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(10px);
+      transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+    }
+
+    .card:hover .card-hover-action {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
     }
 
     .btn-outline {
       width: 100%;
-      background: transparent;
+      background: var(--bg-white);
       border: 2px solid #e2ebd8;
       color: #65a30d;
-      padding: 10px;
+      padding: 9px;
       border-radius: 999px;
       font-weight: 700;
       cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
       transition: all 0.2s;
     }
 
@@ -958,7 +967,6 @@ export interface Ciudad {
       transform: scale(1.08);
     }
 
-    /* GALERÍA PRINCIPAL Y ZOOM POR CLIC */
     .modal-gallery-main {
       position: relative;
       width: 100%;
@@ -984,7 +992,7 @@ export interface Ciudad {
       max-height: 100%;
       width: auto;
       height: auto;
-      object-fit: contain; /* Evita recortes de imagen */
+      object-fit: contain;
       display: block;
       transition: transform 0.3s ease;
     }
@@ -1033,27 +1041,45 @@ export interface Ciudad {
       z-index: 2;
     }
 
-    /* MINIATURAS */
     .modal-thumbnails {
-      display: flex; gap: 8px;
-      padding: 12px 24px 0;
-      overflow-x: auto;
+      display: flex;
+      gap: 10px;
+      padding: 14px 28px 0;
+      justify-content: center;
     }
 
     .thumbnail-btn {
-      flex-shrink: 0; width: 64px; height: 64px;
-      border-radius: 12px; overflow: hidden;
-      border: 2px solid transparent; padding: 0; cursor: pointer;
-      opacity: 0.55; transition: opacity 0.2s, border-color 0.2s;
-      background: none;
+      width: 70px;
+      height: 70px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 2px solid #e2e8f0;
+      padding: 0;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: all 0.2s ease;
+      background: #f8fafc;
     }
 
-    .thumbnail-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumbnail-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
 
-    .thumbnail-btn.active { border-color: var(--primary); opacity: 1; }
-    .thumbnail-btn:hover { opacity: 1; }
+    .thumbnail-btn.active {
+      border-color: var(--primary);
+      opacity: 1;
+      transform: scale(1.05);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
 
-    /* CUERPO DEL MODAL */
+    .thumbnail-btn:hover {
+      opacity: 1;
+      border-color: var(--accent);
+    }
+
     .modal-body { padding: 24px 28px 28px; }
 
     .modal-title {
@@ -1131,7 +1157,6 @@ export interface Ciudad {
       .btn-cta-negocio { width: 100%; text-align: center; }
 
       .featured-section { margin-bottom: 32px; }
-
       .features-section-wrapper { padding-top: 28px; }
 
       .modal-gallery-main { height: 240px; }
@@ -1161,13 +1186,17 @@ export interface Ciudad {
         padding: 10px 36px;
       }
 
-      .card-image-container { height: 170px; }
+      .card { height: 380px; }
+      .card-image-container { height: 190px; }
+      .card:hover .card-image-container { height: 145px; }
     }
   `]
 })
 export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
   private likeService = inject(LikeService);
+  private publicacionesService = inject(PublicacionesService);
+  private router = inject(Router);
 
   currentUser: User | null = null;
   transeunteId: string = '';
@@ -1193,10 +1222,7 @@ export class HomeComponent implements OnInit {
   imagenSeleccionada: string | null = null;
   likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
 
-  // Variable de estado para el Zoom por clic
   isZoomed = false;
-
-  private readonly PLATAFORMA_WHATSAPP_ID = '4e35d5d5-8d91-4131-8b04-dc44b5195527';
 
   private readonly PALETA_CATEGORIAS = [
     { bg: '#fef3c7', fg: '#92400e' },
@@ -1217,7 +1243,7 @@ export class HomeComponent implements OnInit {
       this.publicacionSeleccionada.foto_1,
       this.publicacionSeleccionada.foto_2,
       this.publicacionSeleccionada.foto_3
-    ].filter((foto): foto is string => !!foto);
+    ].filter((foto): foto is string => !!foto && foto.trim() !== '');
   }
 
   get empresasDestacadas(): { id: string; nombre: string; logo: string | null }[] {
@@ -1267,7 +1293,6 @@ export class HomeComponent implements OnInit {
     await this.cargarCategorias();
     await this.cargarPublicaciones();
 
-    // 🌍 Detección automática de la ubicación del usuario
     this.detectarUbicacionUsuario();
   }
 
@@ -1285,16 +1310,10 @@ export class HomeComponent implements OnInit {
   }
 
   async cargarCatalogosGeograficos() {
-    const supabase = this.authService.getSupabaseClient();
-
-    const resPaises = await supabase.from('paises').select('id, nombre').order('nombre');
-    this.paises = resPaises.data || [];
-
-    const resDepts = await supabase.from('departamentos').select('id, pais_id, nombre').order('nombre');
-    this.departamentos = resDepts.data || [];
-
-    const resCiudades = await supabase.from('ciudades').select('id, departamento_id, nombre').order('nombre');
-    this.ciudades = resCiudades.data || [];
+    const { paises, departamentos, ciudades } = await this.publicacionesService.cargarCatalogosGeograficos();
+    this.paises = paises;
+    this.departamentos = departamentos;
+    this.ciudades = ciudades;
   }
 
   detectarUbicacionUsuario() {
@@ -1386,61 +1405,18 @@ export class HomeComponent implements OnInit {
   }
 
   async cargarCategorias() {
-    const { data } = await this.authService.getSupabaseClient()
-      .from('categorias')
-      .select('id, nombre, icono, estado')
-      .eq('estado', 'activo')
-      .order('nombre', { ascending: true });
-
-    this.categorias = (data as Categoria[]) || [];
+    this.categorias = await this.publicacionesService.cargarCategorias();
   }
 
   obtenerNombreCategoria(categoriaId: string): string {
-    const cat = this.categorias.find(c => c.id === categoriaId);
-    return cat ? `${cat.icono || ''} ${cat.nombre}` : 'Categoría';
+    return this.publicacionesService.obtenerNombreCategoria(this.categorias, categoriaId);
   }
 
   async cargarPublicaciones() {
     this.cargando = true;
-
-    const { data, error } = await this.authService.getSupabaseClient()
-      .from('publicaciones')
-      .select(`
-        *,
-        empresa:empresas (
-          nombre,
-          direccion,
-          logo,
-          ciudad_id,
-          redes_sociales (
-            url,
-            plataforma,
-            plataforma_id
-          ),
-          ciudad:ciudades (
-            id,
-            nombre,
-            departamento:departamentos (
-              id,
-              nombre,
-              pais:paises (
-                id,
-                nombre
-              )
-            )
-          )
-        )
-      `)
-      .eq('estado', 'activo')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error al cargar publicaciones con ubicación de empresa:', error);
-    } else {
-      this.publicaciones = (data as PublicacionConEmpresa[]) || [];
-      this.publicacionesFiltradas = [...this.publicaciones];
-      await this.cargarEstadoLikesParaTodas();
-    }
+    this.publicaciones = await this.publicacionesService.cargarPublicaciones();
+    this.publicacionesFiltradas = [...this.publicaciones];
+    await this.cargarEstadoLikesParaTodas();
     this.cargando = false;
   }
 
@@ -1484,32 +1460,34 @@ export class HomeComponent implements OnInit {
   }
 
   filtrarPublicaciones() {
-    const query = this.searchQuery.toLowerCase().trim();
+    this.publicacionesFiltradas = this.publicacionesService.filtrar(this.publicaciones, {
+      query: this.searchQuery,
+      categoriaId: this.categoriaSeleccionadaId,
+      paisId: this.filtroPaisId,
+      departamentoId: this.filtroDepartamentoId,
+      ciudadId: this.filtroCiudadId
+    });
+  }
 
-    this.publicacionesFiltradas = this.publicaciones.filter(pub => {
-      const cumpleQuery = !query ||
-        pub.servicio_producto.toLowerCase().includes(query) ||
-        (pub.descripcion && pub.descripcion.toLowerCase().includes(query)) ||
-        (pub.empresa?.nombre && pub.empresa.nombre.toLowerCase().includes(query)) ||
-        (pub.empresa?.ciudad?.nombre && pub.empresa.ciudad.nombre.toLowerCase().includes(query));
-
-      const cumpleCategoria = !this.categoriaSeleccionadaId || pub.categoria_id === this.categoriaSeleccionadaId;
-
-      const ciudadObj = pub.empresa?.ciudad;
-      const deptoObj = ciudadObj?.departamento;
-      const paisObj = deptoObj?.pais;
-
-      const cumplePais = !this.filtroPaisId || paisObj?.id === this.filtroPaisId;
-      const cumpleDepto = !this.filtroDepartamentoId || deptoObj?.id === this.filtroDepartamentoId;
-      const cumpleCiudad = !this.filtroCiudadId || ciudadObj?.id === this.filtroCiudadId;
-
-      return cumpleQuery && cumpleCategoria && cumplePais && cumpleDepto && cumpleCiudad;
+  buscarEnResultados() {
+    this.router.navigate(['/resultados'], {
+      queryParams: {
+        q: this.searchQuery || null,
+        categoria: this.categoriaSeleccionadaId || null,
+        pais: this.filtroPaisId || null,
+        departamento: this.filtroDepartamentoId || null,
+        ciudad: this.filtroCiudadId || null
+      }
     });
   }
 
   seleccionarCategoria(categoriaId: string | null) {
     this.categoriaSeleccionadaId = categoriaId;
     this.filtrarPublicaciones();
+
+    if (categoriaId) {
+      this.buscarEnResultados();
+    }
   }
 
   limpiarBuscador() {
@@ -1524,42 +1502,11 @@ export class HomeComponent implements OnInit {
   }
 
   obtenerUbicacionTexto(pub: PublicacionConEmpresa): string {
-    const partes = [
-      pub.empresa?.ciudad?.nombre,
-      pub.empresa?.ciudad?.departamento?.nombre,
-      pub.empresa?.ciudad?.departamento?.pais?.nombre
-    ].filter((parte): parte is string => !!parte);
-
-    return partes.length ? partes.join(', ') : 'Ubicación no especificada';
+    return this.publicacionesService.obtenerUbicacionTexto(pub);
   }
 
   obtenerLinkWhatsapp(pub: PublicacionConEmpresa): string | null {
-    const redes = pub.empresa?.redes_sociales || [];
-
-    const redWhatsapp = redes.find(r =>
-      r.plataforma_id === this.PLATAFORMA_WHATSAPP_ID ||
-      (r.plataforma || '').toLowerCase().includes('whatsapp')
-    );
-
-    if (!redWhatsapp?.url) return null;
-
-    const valor = redWhatsapp.url.trim();
-
-    if (/^https?:\/\//i.test(valor)) {
-      return valor;
-    }
-
-    let numero = valor.replace(/\D/g, '');
-    if (!numero) return null;
-
-    if (numero.length <= 10) {
-      numero = '57' + numero;
-    }
-
-    const mensaje = encodeURIComponent(
-      `Hola, vi tu publicación "${pub.servicio_producto}" en Qué Busca Mijo y quisiera más información.`
-    );
-    return `https://wa.me/${numero}?text=${mensaje}`;
+    return this.publicacionesService.obtenerLinkWhatsapp(pub);
   }
 
   abrirModal(pub: PublicacionConEmpresa) {
