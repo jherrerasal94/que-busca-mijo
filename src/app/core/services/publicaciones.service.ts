@@ -20,6 +20,9 @@ export interface PublicacionConEmpresa {
   foto_2: string | null;
   foto_3: string | null;
   created_at: string;
+  // Nullable mientras no todas las publicaciones tengan slug generado
+  // (ver migración de Fase 3). El botón "Compartir" se oculta si falta.
+  slug?: string | null;
   empresa?: {
     nombre?: string;
     direccion?: string;
@@ -144,6 +147,49 @@ export class PublicacionesService {
     }
 
     return (data as PublicacionConEmpresa[]) || [];
+  }
+
+  // Para la página de producto dedicada (/producto/:slug). Misma forma de
+  // consulta que cargarPublicaciones, pero trae una sola fila por slug.
+  async obtenerPublicacionPorSlug(slug: string): Promise<PublicacionConEmpresa | null> {
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('publicaciones')
+      .select(`
+        *,
+        empresa:empresas (
+          nombre,
+          direccion,
+          logo,
+          ciudad_id,
+          redes_sociales (
+            url,
+            plataforma,
+            plataforma_id
+          ),
+          ciudad:ciudades (
+            id,
+            nombre,
+            departamento:departamentos (
+              id,
+              nombre,
+              pais:paises (
+                id,
+                nombre
+              )
+            )
+          )
+        )
+      `)
+      .eq('slug', slug)
+      .eq('estado', 'activo')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error al cargar publicación por slug:', error);
+      return null;
+    }
+
+    return (data as PublicacionConEmpresa) || null;
   }
 
   // Filtro puro, sin efectos secundarios: lo usan tanto Home (preview en vivo)

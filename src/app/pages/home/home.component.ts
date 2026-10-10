@@ -324,6 +324,14 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
 
               <div class="modal-actions">
                 <button type="button" class="btn-outline-modal" (click)="cerrarModal()">Cerrar</button>
+                @if (publicacionSeleccionada.slug) {
+                  <a
+                    class="btn-outline-modal btn-compartir"
+                    [routerLink]="['/producto', publicacionSeleccionada.slug]"
+                    (click)="cerrarModal()">
+                    🔗 Compartir
+                  </a>
+                }
                 @if (obtenerLinkWhatsapp(publicacionSeleccionada); as linkWhatsapp) {
                   <a
                     class="btn-whatsapp"

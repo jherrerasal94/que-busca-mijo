@@ -20,6 +20,7 @@ export const routes: Routes = [
   { path: 'empresa/:id', loadComponent: () => import('./pages/empresa-detalle/empresa-detalle.component').then(m => m.EmpresaDetalleComponent) },
   { path: 'miempresa/:alias', loadComponent: () => import('./pages/empresa-detalle/empresa-detalle.component').then(m => m.EmpresaDetalleComponent) }, // Perfil público por alias (SEO)
   { path: 'resultados', loadComponent: () => import('./pages/resultados/resultados.component').then(m => m.ResultadosComponent) },
+  { path: 'producto/:slug', loadComponent: () => import('./pages/producto-detalle/producto-detalle.component').then(m => m.ProductoDetalleComponent) },
 
   // Rutas Protegidas
   {

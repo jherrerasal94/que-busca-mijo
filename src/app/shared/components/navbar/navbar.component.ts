@@ -44,9 +44,9 @@ export interface EmpresaInfo {
         <!-- NAV LINKS: solo visibles en escritorio -->
         <div class="nav-links">
           <a routerLink="/" routerLinkActive="nav-link-active" [routerLinkActiveOptions]="{ exact: true }" class="nav-link">Explorar</a>
-          <a routerLink="/" class="nav-link">Categorías</a>
+          <a routerLink="/resultados" routerLinkActive="nav-link-active" class="nav-link">Categorías</a>
           <a routerLink="/" class="nav-link">Negocios</a>
-          <a routerLink="/" class="nav-link">Ofertas</a>
+          <a routerLink="/resultados" routerLinkActive="nav-link-active" class="nav-link">Ofertas</a>
         </div>
 
         <div class="nav-right">
@@ -108,7 +108,7 @@ export interface EmpresaInfo {
                   <span class="item-icon">🔎</span>
                   <span>Explorar</span>
                 </a>
-                <a routerLink="/" class="dropdown-item" (click)="cerrarMenu()">
+                <a routerLink="/resultados" routerLinkActive="active-item" class="dropdown-item" (click)="cerrarMenu()">
                   <span class="item-icon">📁</span>
                   <span>Categorías</span>
                 </a>
@@ -116,7 +116,7 @@ export interface EmpresaInfo {
                   <span class="item-icon">🏪</span>
                   <span>Negocios</span>
                 </a>
-                <a routerLink="/" class="dropdown-item" (click)="cerrarMenu()">
+                <a routerLink="/resultados" routerLinkActive="active-item" class="dropdown-item" (click)="cerrarMenu()">
                   <span class="item-icon">🏷️</span>
                   <span>Ofertas</span>
                 </a>
