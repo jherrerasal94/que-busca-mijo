@@ -21,6 +21,8 @@ export const routes: Routes = [
   { path: 'miempresa/:alias', loadComponent: () => import('./pages/empresa-detalle/empresa-detalle.component').then(m => m.EmpresaDetalleComponent) }, // Perfil público por alias (SEO)
   { path: 'resultados', loadComponent: () => import('./pages/resultados/resultados.component').then(m => m.ResultadosComponent) },
   { path: 'producto/:slug', loadComponent: () => import('./pages/producto-detalle/producto-detalle.component').then(m => m.ProductoDetalleComponent) },
+  { path: 'forgot-password', loadComponent: () => import('./pages/olvidar-contrasena/olvidar-contrasena.component').then(m => m.OlvidarContrasenaComponent) },
+  { path: 'actualizar-password', loadComponent: () => import('./pages/cambiar-contrasena/cambiar-contrasena.component').then(m => m.CambiarContrasenaComponent) },
 
   // Rutas Protegidas
   {

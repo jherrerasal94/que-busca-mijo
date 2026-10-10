@@ -1,0 +1,129 @@
+<main class="login-page">
+  <section class="login-layout" aria-label="Cambiar contraseña de ¿Qué Busca Mijo?">
+    <div class="login-card">
+      <a class="brand" routerLink="/" aria-label="¿Qué Busca Mijo? — ir al inicio">
+        <span class="brand-mark" aria-hidden="true">QBM</span>
+        <span class="brand-name">¿Qué Busca <span>Mijo?</span></span>
+      </a>
+
+      <header class="form-heading">
+        <span class="welcome-icon" aria-hidden="true">🔒</span>
+        <p class="eyebrow">NUEVA CREDENCIAL</p>
+        <h1>Actualiza tu <span>contraseña</span></h1>
+        <p class="subtitle">Ingresa tu nueva contraseña para asegurar tu cuenta.</p>
+      </header>
+
+      @if (successMessage) {
+        <div class="success-banner" role="status" aria-live="polite">
+          <span aria-hidden="true">✓</span>
+          <p>{{ successMessage }}</p>
+        </div>
+      } @else {
+        <form (ngSubmit)="onSubmit()" novalidate>
+          <div class="field">
+            <label for="password">Nueva contraseña</label>
+            <div class="input-wrap" [class.input-error]="passwordInvalid">
+              <span class="field-icon" aria-hidden="true">▣</span>
+              <input
+                id="password"
+                [type]="showPassword ? 'text' : 'password'"
+                name="password"
+                [(ngModel)]="password"
+                autocomplete="new-password"
+                placeholder="Mínimo 6 caracteres"
+                required
+                [disabled]="loading"
+                [attr.aria-invalid]="passwordInvalid"
+                aria-describedby="password-error"
+              />
+              <button
+                class="visibility-toggle"
+                type="button"
+                (click)="togglePasswordVisibility()"
+                [disabled]="loading"
+              >{{ showPassword ? 'Ocultar' : 'Mostrar' }}</button>
+            </div>
+            @if (passwordInvalid) {
+              <p id="password-error" class="field-error" role="alert">La contraseña debe tener al menos 6 caracteres.</p>
+            }
+          </div>
+
+          <div class="field">
+            <label for="confirmPassword">Confirmar contraseña</label>
+            <div class="input-wrap" [class.input-error]="passwordsMismatch">
+              <span class="field-icon" aria-hidden="true">▣</span>
+              <input
+                id="confirmPassword"
+                [type]="showPassword ? 'text' : 'password'"
+                name="confirmPassword"
+                [(ngModel)]="confirmPassword"
+                autocomplete="new-password"
+                placeholder="Repite tu contraseña"
+                required
+                [disabled]="loading"
+                [attr.aria-invalid]="passwordsMismatch"
+                aria-describedby="confirm-error"
+              />
+            </div>
+            @if (passwordsMismatch) {
+              <p id="confirm-error" class="field-error" role="alert">Las contraseñas no coinciden.</p>
+            }
+          </div>
+
+          @if (errorMessage) {
+            <div class="error-banner" role="alert" aria-live="polite">
+              <span aria-hidden="true">!</span>
+              <p>{{ errorMessage }}</p>
+            </div>
+          }
+
+          <button class="submit-button" type="submit" [disabled]="loading">
+            @if (loading) {
+              <span class="spinner" aria-hidden="true"></span> Guardando...
+            } @else {
+              Actualizar contraseña <span aria-hidden="true">→</span>
+            }
+          </button>
+        </form>
+      }
+
+      <div class="register-prompt">
+        <span>¿Recordaste tu contraseña?</span>
+        <a routerLink="/login">Inicia sesión</a>
+      </div>
+
+      <a class="back-link" routerLink="/"><span aria-hidden="true">←</span> Volver a la página principal</a>
+      <p class="privacy-note"><span aria-hidden="true">✓</span> Tu acceso está protegido.</p>
+    </div>
+
+    <!-- Panel lateral decorativo idéntico -->
+    <aside class="brand-panel" aria-label="Encuentra negocios de tu región">
+      <div class="panel-orbit orbit-one"></div>
+      <div class="panel-orbit orbit-two"></div>
+      <div class="illustration" aria-hidden="true">
+        <div class="pin"><span></span></div>
+        <div class="shop">
+          <div class="awning"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="shop-front">
+            <div class="shop-window"></div>
+            <div class="shop-door"><span></span></div>
+          </div>
+        </div>
+        <div class="shopping-bag bag-one"><span>✓</span></div>
+        <div class="shopping-bag bag-two"><span>♡</span></div>
+        <div class="spark spark-one">✦</div>
+        <div class="spark spark-two">✦</div>
+      </div>
+      <div class="panel-copy">
+        <p class="panel-kicker">LO BUENO ESTÁ CERCA</p>
+        <h2>Apoyemos <span>lo nuestro.</span></h2>
+        <p>Descubre productos y servicios de negocios de tu región, de forma rápida y directa.</p>
+      </div>
+      <div class="trust-list">
+        <div><span class="trust-icon">✓</span><span><strong>Negocios locales</strong><small>Encuentra opciones en tu zona</small></span></div>
+        <div><span class="trust-icon">↔</span><span><strong>Trato directo</strong><small>Conecta con cada negocio</small></span></div>
+        <div><span class="trust-icon">⌑</span><span><strong>Fácil y sencillo</strong><small>Encuentra lo que necesitas</small></span></div>
+      </div>
+    </aside>
+  </section>
+</main>

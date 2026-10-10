@@ -1,0 +1,109 @@
+<main class="login-page">
+  <section class="login-layout" aria-label="Recuperar contraseña de ¿Qué Busca Mijo?">
+    <div class="login-card">
+      <a class="brand" routerLink="/" aria-label="¿Qué Busca Mijo? — ir al inicio">
+        <span class="brand-mark" aria-hidden="true">QBM</span>
+        <span class="brand-name">¿Qué Busca <span>Mijo?</span></span>
+      </a>
+
+      <header class="form-heading">
+        <span class="welcome-icon" aria-hidden="true">🔑</span>
+        <p class="eyebrow">RECUPERA TU ACCESO</p>
+        <h1>¿Olvidaste tu <span>contraseña?</span></h1>
+        <p class="subtitle">No te preocupes, ingresa tu correo electrónico y te ayudaremos a recuperarla.</p>
+      </header>
+
+      @if (successMessage) {
+        <div class="success-banner" role="status" aria-live="polite">
+          <span aria-hidden="true">✓</span>
+          <p>{{ successMessage }}</p>
+        </div>
+      } @else {
+        <form (ngSubmit)="onSubmit()" novalidate>
+          <div class="field">
+            <label for="email">Correo electrónico</label>
+            <div class="input-wrap" [class.input-error]="emailInvalid">
+              <span class="field-icon" aria-hidden="true">✉</span>
+              <input
+                id="email"
+                type="email"
+                name="email"
+                [(ngModel)]="email"
+                autocomplete="email"
+                inputmode="email"
+                placeholder="tuemail@ejemplo.com"
+                required
+                [disabled]="loading"
+                [attr.aria-invalid]="emailInvalid"
+                aria-describedby="email-hint email-error"
+              />
+            </div>
+            <p id="email-hint" class="field-hint">Usa el correo con el que te registraste.</p>
+            @if (emailInvalid) {
+              <p id="email-error" class="field-error" role="alert">
+                @if (!email.trim()) {
+                  Escribe tu correo electrónico.
+                } @else {
+                  Revisa el formato del correo electrónico.
+                }
+              </p>
+            }
+          </div>
+
+          @if (errorMessage) {
+            <div class="error-banner" role="alert" aria-live="polite">
+              <span aria-hidden="true">!</span>
+              <p>{{ errorMessage }}</p>
+            </div>
+          }
+
+          <button class="submit-button" type="submit" [disabled]="loading">
+            @if (loading) {
+              <span class="spinner" aria-hidden="true"></span> Enviando enlace...
+            } @else {
+              Enviar instrucciones <span aria-hidden="true">→</span>
+            }
+          </button>
+        </form>
+      }
+
+      <div class="register-prompt">
+        <span>¿Ya recordaste tu contraseña?</span>
+        <a routerLink="/login">Inicia sesión</a>
+      </div>
+
+      <a class="back-link" routerLink="/"><span aria-hidden="true">←</span> Volver a la página principal</a>
+      <p class="privacy-note"><span aria-hidden="true">✓</span> Tu acceso está protegido.</p>
+    </div>
+
+    <!-- Panel lateral decorativo idéntico al login -->
+    <aside class="brand-panel" aria-label="Encuentra negocios de tu región">
+      <div class="panel-orbit orbit-one"></div>
+      <div class="panel-orbit orbit-two"></div>
+      <div class="illustration" aria-hidden="true">
+        <div class="pin"><span></span></div>
+        <div class="shop">
+          <div class="awning"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="shop-front">
+            <div class="shop-window"></div>
+            <div class="shop-door"><span></span></div>
+          </div>
+        </div>
+        <div class="shopping-bag bag-one"><span>✓</span></div>
+        <div class="shopping-bag bag-two"><span>♡</span></div>
+        <div class="spark spark-one">✦</div>
+        <div class="spark spark-two">✦</div>
+      </div>
+      <div class="panel-copy">
+        <p class="panel-kicker">LO BUENO ESTÁ CERCA</p>
+        <h2>Apoyemos <span>lo nuestro.</span></h2>
+        <p>Descubre productos y servicios de negocios de tu región, de forma rápida y directa.</p>
+      </div>
+      <div class="trust-list">
+        <div><span class="trust-icon">✓</span><span><strong>Negocios locales</strong><small>Encuentra opciones en tu zona</small></span></div>
+        <div><span class="trust-icon">↔</span><span><strong>Trato directo</strong><small>Conecta con cada negocio</small></span></div>
+        <div><span class="trust-icon">⌑</span><span><strong>Fácil y sencillo</strong><small>Encuentra lo que necesitas</small></span></div>
+      </div>
+    </aside>
+  </section>
+</main>

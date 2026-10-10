@@ -70,7 +70,15 @@ export class AuthService {
     return this.supabase;
   }
 
-  // En tu auth.service.ts
+  // Método para solicitar la recuperación de contraseña por correo
+  async recuperarPassword(email: string) {
+    const { data, error } = await this.supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/actualizar-password`,
+    });
+    if (error) throw error;
+    return data;
+  }
+
   async obtenerRolUsuario(userId: string): Promise<'admin' | 'empresa' | 'transeunte' | null> {
     const supabase = this.getSupabaseClient();
 
@@ -99,5 +107,12 @@ export class AuthService {
     if (transeunte) return 'transeunte';
 
     return null;
+  }
+  async actualizarPassword(nuevaPassword: string) {
+    const { data, error } = await this.supabase.auth.updateUser({
+      password: nuevaPassword
+    });
+    if (error) throw error;
+    return data;
   }
 }
