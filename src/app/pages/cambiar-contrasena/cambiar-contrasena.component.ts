@@ -25,7 +25,7 @@ export class CambiarContrasenaComponent implements OnInit {
   sesionValida = false;
 
   async ngOnInit() {
-    // Verificamos si Supabase logró capturar la sesión de recuperación desde el enlace del correo
+    // Verificamos si hay una sesión activa o un token válido de recuperación
     const user = await this.authService.getUser();
     if (user) {
       this.sesionValida = true;
@@ -67,7 +67,12 @@ export class CambiarContrasenaComponent implements OnInit {
         this.router.navigate(['/login']);
       }, 3000);
     } catch (error: any) {
-      this.errorMessage = 'No se pudo actualizar la contraseña. Asegúrate de que cumpla con los requisitos.';
+      // Capturamos mensajes específicos si Supabase rechaza el cambio (ej. contraseña igual a la anterior)
+      if (error?.message?.includes('same') || error?.message?.includes('should be different')) {
+        this.errorMessage = 'La nueva contraseña debe ser diferente a la que tenías anteriormente.';
+      } else {
+        this.errorMessage = error?.message || 'No se pudo actualizar la contraseña. El enlace pudo haber expirado.';
+      }
     } finally {
       this.loading = false;
     }
