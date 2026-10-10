@@ -22,10 +22,16 @@ export class CambiarContrasenaComponent implements OnInit {
   submitted = false;
   successMessage = '';
   errorMessage = '';
+  sesionValida = false;
 
-  ngOnInit() {
-    // Opcional: Supabase detecta automáticamente el token en la URL gracias a detectSessionInUrl: true en el cliente.
-    // Puedes verificar si hay una sesión activa o un hash válido si lo deseas.
+  async ngOnInit() {
+    // Verificamos si Supabase logró capturar la sesión de recuperación desde el enlace del correo
+    const user = await this.authService.getUser();
+    if (user) {
+      this.sesionValida = true;
+    } else {
+      this.errorMessage = 'El enlace de recuperación ha expirado o ya fue utilizado. Por favor, solicita uno nuevo.';
+    }
   }
 
   get passwordInvalid(): boolean {
@@ -45,6 +51,11 @@ export class CambiarContrasenaComponent implements OnInit {
     this.errorMessage = '';
     this.successMessage = '';
 
+    if (!this.sesionValida) {
+      this.errorMessage = 'No hay una sesión de recuperación válida. Solicita un nuevo enlace.';
+      return;
+    }
+
     if (this.passwordInvalid || this.passwordsMismatch || this.loading) return;
 
     this.loading = true;
@@ -56,7 +67,7 @@ export class CambiarContrasenaComponent implements OnInit {
         this.router.navigate(['/login']);
       }, 3000);
     } catch (error: any) {
-      this.errorMessage = 'El enlace ha expirado o no es válido. Intenta solicitar uno nuevo.';
+      this.errorMessage = 'No se pudo actualizar la contraseña. Asegúrate de que cumpla con los requisitos.';
     } finally {
       this.loading = false;
     }
