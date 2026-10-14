@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
-import { PublicacionConEmpresa } from '../home/home.component';
+import { PublicacionesService, PublicacionConEmpresa, Categoria } from '../../core/services/publicaciones.service';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
 export interface RedSocial {
@@ -14,6 +14,34 @@ export interface RedSocial {
     nombre: string;
     icono: string;
   };
+}
+
+export interface Empresa {
+  id: string;
+  nombre: string;
+  alias?: string | null;
+  nit?: string;
+  rep_telefono?: string | null;
+  correo_empresarial?: string | null;
+  direccion?: string | null;
+  logo?: string | null;
+  img_empresa_1?: string | null;
+  img_empresa_2?: string | null;
+  verificado?: boolean;
+  sobre_nosotros?: string | null;
+  ciudad?: {
+    nombre?: string;
+    departamento?: {
+      nombre?: string;
+    };
+  };
+}
+
+export interface GrupoCategoria {
+  categoriaId: string | null;
+  categoriaNombre: string;
+  categoriaIcono: string;
+  publicaciones: PublicacionConEmpresa[];
 }
 
 @Component({
@@ -50,17 +78,38 @@ export interface RedSocial {
             </div>
 
             <div class="company-info">
-              <h1 class="company-title">{{ empresa.nombre }}</h1>
+              <div class="company-title-row">
+                <h1 class="company-title">{{ empresa.nombre }}</h1>
+                @if (empresa.verificado) {
+                  <span class="verified-badge" title="Negocio verificado por Qué Busca Mijo">✔️ Verificado</span>
+                }
+              </div>
               @if (empresa.alias) {
                 <p class="company-alias">&#64;{{ empresa.alias }}</p>
               }
-              
+
+              <!-- CTA PRINCIPALES: WHATSAPP Y LLAMAR -->
+              @if (linkWhatsappEmpresa || empresa.rep_telefono) {
+                <div class="main-cta-row">
+                  @if (linkWhatsappEmpresa) {
+                    <a [href]="linkWhatsappEmpresa" target="_blank" rel="noopener noreferrer" class="btn-cta-whatsapp">
+                      💬 WhatsApp
+                    </a>
+                  }
+                  @if (empresa.rep_telefono) {
+                    <a [href]="'tel:' + empresa.rep_telefono" class="btn-cta-llamar">
+                      📞 Llamar
+                    </a>
+                  }
+                </div>
+              }
+
               <div class="company-meta-grid">
                 @if (empresa.direccion) {
                   <span class="meta-element">📍 {{ empresa.direccion }}</span>
                 }
                 @if (empresa.ciudad?.nombre) {
-                  <span class="meta-element">🏙️ {{ empresa.ciudad.nombre }}</span>
+                  <span class="meta-element">🏙️ {{ empresa.ciudad?.nombre }}</span>
                 }
                 @if (empresa.correo_empresarial) {
                   <span class="meta-element">✉️ {{ empresa.correo_empresarial }}</span>
@@ -99,50 +148,61 @@ export interface RedSocial {
             </div>
           </section>
 
-          <!-- SECCIÓN DE PUBLICACIONES DE LA EMPRESA -->
-          <section class="company-offers-section">
-            <h2 class="section-title">📦 Publicaciones de {{ empresa.nombre }}</h2>
-            <p class="section-subtitle">Explora todos los productos y servicios ofrecidos por este negocio.</p>
+          <!-- SOBRE NOSOTROS -->
+          @if (empresa.sobre_nosotros) {
+            <section class="about-section">
+              <h2 class="section-title">Sobre nosotros</h2>
+              <p class="about-text">{{ empresa.sobre_nosotros }}</p>
+            </section>
+          }
 
+          <!-- SECCIÓN DE PUBLICACIONES DE LA EMPRESA, AGRUPADAS POR CATEGORÍA -->
+          <section class="company-offers-section">
             @if (publicaciones.length === 0) {
+              <h2 class="section-title">📦 Publicaciones de {{ empresa.nombre }}</h2>
               <div class="empty-state-small">
                 <p>Esta empresa aún no cuenta con publicaciones activas.</p>
               </div>
             } @else {
-              <div class="cards-grid">
-                @for (pub of publicaciones; track pub.id) {
-                  <div class="card" (click)="abrirModalPublicacion(pub)">
-                    <div class="card-image-container">
-                      @if (pub.foto_1) {
-                        <img [src]="pub.foto_1" [alt]="pub.servicio_producto" class="card-image" />
-                      } @else {
-                        <div class="card-image-placeholder">🏷️</div>
-                      }
-                      
-                      <button 
-                        class="btn-favorite" 
-                        [class.liked]="likesMap[pub.id]?.hasLiked"
-                        (click)="$event.stopPropagation(); onToggleLike(pub.id)"
-                        title="Me gusta">
-                        {{ likesMap[pub.id]?.hasLiked ? '❤️' : '🤍' }}
-                      </button>
+              @for (grupo of publicacionesAgrupadas; track grupo.categoriaId) {
+                <div class="category-group">
+                  <h2 class="section-title">{{ grupo.categoriaIcono }} {{ grupo.categoriaNombre }}</h2>
+                  <div class="cards-grid">
+                    @for (pub of grupo.publicaciones; track pub.id) {
+                      <div class="card" (click)="abrirModalPublicacion(pub)">
+                        <div class="card-image-container">
+                          @if (pub.foto_1) {
+                            <img [src]="pub.foto_1" [alt]="pub.servicio_producto" class="card-image" />
+                          } @else {
+                            <div class="card-image-placeholder">🏷️</div>
+                          }
 
-                      @if (pub.precio !== null) {
-                        <div class="price-tag">&#36;{{ pub.precio | number:'1.0-2' }}</div>
-                      }
-                    </div>
+                          <button
+                            class="btn-favorite"
+                            [class.liked]="likesMap[pub.id]?.hasLiked"
+                            (click)="$event.stopPropagation(); onToggleLike(pub.id)"
+                            title="Me gusta">
+                            {{ likesMap[pub.id]?.hasLiked ? '❤️' : '🤍' }}
+                          </button>
 
-                    <div class="card-content">
-                      <h3 class="card-title">{{ pub.servicio_producto }}</h3>
-                      <p class="card-desc-preview">{{ pub.descripcion || 'Sin descripción.' }}</p>
-                      
-                      <div class="card-meta">
-                        <span class="meta-item">❤️ {{ likesMap[pub.id]?.total || 0 }} likes</span>
+                          @if (pub.precio !== null) {
+                            <div class="price-tag">&#36;{{ pub.precio | number:'1.0-2' }}</div>
+                          }
+                        </div>
+
+                        <div class="card-content">
+                          <h3 class="card-title">{{ pub.servicio_producto }}</h3>
+                          <p class="card-desc-preview">{{ pub.descripcion || 'Sin descripción.' }}</p>
+
+                          <div class="card-meta">
+                            <span class="meta-item">❤️ {{ likesMap[pub.id]?.total || 0 }} likes</span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    }
                   </div>
-                }
-              </div>
+                </div>
+              }
             }
           </section>
 
@@ -150,7 +210,7 @@ export interface RedSocial {
           @if (empresa.direccion) {
             <section class="company-map-section">
               <h2 class="section-title">📍 Ubicación del negocio</h2>
-              <p class="section-subtitle">{{ empresa.direccion }} {{ empresa.ciudad?.nombre ? '- ' + empresa.ciudad.nombre : '' }}</p>
+              <p class="section-subtitle">{{ empresa.direccion }} {{ empresa.ciudad?.nombre ? '- ' + empresa.ciudad?.nombre : '' }}</p>
               
               <div class="map-container">
                 <iframe
@@ -214,8 +274,8 @@ export interface RedSocial {
                     ({{ likesMap[pubSeleccionadaModal.id]?.total || 0 }})
                   </button>
 
-                  @if (empresa.rep_telefono) {
-                    <a [href]="'https://wa.me/593' + empresa.rep_telefono" target="_blank" class="btn-whatsapp">
+                  @if (linkWhatsappEmpresa) {
+                    <a [href]="linkWhatsappEmpresa" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
                       💬 Contactar por WhatsApp
                     </a>
                   }
@@ -264,8 +324,32 @@ export interface RedSocial {
     .company-logo-placeholder { width: 120px; height: 120px; border-radius: 20px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
 
     .company-info { flex: 1; }
+
+    .company-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .company-title { margin: 0 0 4px 0; color: var(--primary); font-size: 2.2rem; font-weight: 900; }
+
+    .verified-badge {
+      background: #e0f2fe; color: #0369a1; font-weight: 800; font-size: 0.8rem;
+      padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+    }
+
     .company-alias { color: var(--text-muted); font-weight: 600; margin: 0 0 16px 0; }
+
+    .main-cta-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .btn-cta-whatsapp, .btn-cta-llamar {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 20px; border-radius: 999px; font-weight: 800; font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .btn-cta-whatsapp { background: #25d366; color: #fff; }
+    .btn-cta-whatsapp:hover { opacity: 0.9; }
+    .btn-cta-llamar { background: var(--primary); color: #fff; }
+    .btn-cta-llamar:hover { opacity: 0.9; }
+
+    .about-section { margin-bottom: 40px; }
+    .about-text { color: var(--text-main); line-height: 1.7; font-size: 1rem; white-space: pre-line; }
+
+    .category-group { margin-bottom: 20px; }
     
     .company-meta-grid { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
     .meta-element { background: #fff; padding: 6px 14px; border-radius: 10px; font-size: 0.9rem; color: var(--text-main); font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
@@ -373,10 +457,18 @@ export class EmpresaDetalleComponent implements OnInit {
   private authService = inject(AuthService);
   private likeService = inject(LikeService);
   private sanitizer = inject(DomSanitizer);
+  private publicacionesService = inject(PublicacionesService);
+
+  // ID de la plataforma "WhatsApp Business" en plataformas_sociales (mismo
+  // valor usado en PublicacionesService, pero aquí redesSociales viene en
+  // una forma distinta -join a plataformas_sociales por nombre-, así que
+  // se resuelve por nombre en vez de por este id).
+  private readonly PLATAFORMA_WHATSAPP_ID = '4e35d5d5-8d91-4131-8b04-dc44b5195527';
 
   empresaId: string | null = null;
-  empresa: any = null;
+  empresa: Empresa | null = null;
   publicaciones: PublicacionConEmpresa[] = [];
+  categorias: Categoria[] = [];
   redesSociales: RedSocial[] = [];
   cargando = true;
   transeunteId = '';
@@ -387,6 +479,50 @@ export class EmpresaDetalleComponent implements OnInit {
   imagenModalAbierta = false;
   imagenSeleccionada = '';
   pubSeleccionadaModal: PublicacionConEmpresa | null = null;
+
+  get linkWhatsappEmpresa(): string | null {
+    const redWhatsapp = this.redesSociales.find(r =>
+      (r.plataformas_sociales?.nombre || '').toLowerCase().includes('whatsapp')
+    );
+
+    if (!redWhatsapp?.url) return null;
+
+    const valor = redWhatsapp.url.trim();
+    if (/^https?:\/\//i.test(valor)) {
+      return valor;
+    }
+
+    let numero = valor.replace(/\D/g, '');
+    if (!numero) return null;
+    if (numero.length <= 10) {
+      numero = '57' + numero;
+    }
+
+    const mensaje = encodeURIComponent(
+      `Hola, vi el perfil de ${this.empresa?.nombre || 'tu negocio'} en Qué Busca Mijo y quisiera más información.`
+    );
+    return `https://wa.me/${numero}?text=${mensaje}`;
+  }
+
+  get publicacionesAgrupadas(): GrupoCategoria[] {
+    const grupos = new Map<string, GrupoCategoria>();
+
+    for (const pub of this.publicaciones) {
+      const clave = pub.categoria_id || '_sin_categoria';
+      if (!grupos.has(clave)) {
+        const cat = this.categorias.find(c => c.id === pub.categoria_id);
+        grupos.set(clave, {
+          categoriaId: pub.categoria_id,
+          categoriaNombre: cat?.nombre || 'Otras publicaciones',
+          categoriaIcono: cat?.icono || '📁',
+          publicaciones: []
+        });
+      }
+      grupos.get(clave)!.publicaciones.push(pub);
+    }
+
+    return Array.from(grupos.values());
+  }
 
   async ngOnInit() {
     // Esta página se sirve desde dos rutas distintas: /empresa/:id (UUID,
@@ -400,6 +536,8 @@ export class EmpresaDetalleComponent implements OnInit {
       const { data } = await this.authService.getSupabaseClient().from('transeuntes').select('id').eq('id', user.id).maybeSingle();
       if (data) this.transeunteId = data.id;
     }
+
+    this.categorias = await this.publicacionesService.cargarCategorias();
 
     if (idParam) {
       await this.cargarDatosEmpresa('id', idParam);
@@ -435,7 +573,7 @@ export class EmpresaDetalleComponent implements OnInit {
       .maybeSingle();
 
     if (!error && data) {
-      this.empresa = data;
+      this.empresa = data as Empresa;
       this.generarUrlMapa();
     }
   }
