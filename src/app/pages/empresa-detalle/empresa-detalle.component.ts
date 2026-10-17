@@ -1,5 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { AuthService } from '../../core/services/auth.service';
@@ -44,10 +45,22 @@ export interface GrupoCategoria {
   publicaciones: PublicacionConEmpresa[];
 }
 
+export interface ReviewEmpresa {
+  id: string;
+  rating: number;
+  comentario: string | null;
+  created_at: string;
+  transeunte_id: string;
+  transeunte?: {
+    nombres?: string;
+    apellidos?: string;
+  };
+}
+
 @Component({
   selector: 'app-empresa-detalle',
   standalone: true,
-  imports: [CommonModule, RouterLink, FooterComponent],
+  imports: [CommonModule, FormsModule, RouterLink, FooterComponent],
   template: `
     <div class="page-wrapper">
       <main class="main-content">
@@ -103,7 +116,7 @@ export interface GrupoCategoria {
                   }
                 </div>
               }
-
+              
               <div class="company-meta-grid">
                 @if (empresa.direccion) {
                   <span class="meta-element">📍 {{ empresa.direccion }}</span>
@@ -203,6 +216,62 @@ export interface GrupoCategoria {
                   </div>
                 </div>
               }
+            }
+          </section>
+
+          <!-- OPINIONES -->
+          <section class="reviews-section">
+            <h2 class="section-title">⭐ Opiniones</h2>
+
+            @if (reviews.length > 0) {
+              <div class="rating-summary">
+                <span class="rating-number">{{ promedioRating.toFixed(1) }}</span>
+                <span class="rating-stars">{{ '⭐'.repeat(promedioRedondeado) }}</span>
+                <span class="rating-count">({{ reviews.length }} {{ reviews.length === 1 ? 'opinión' : 'opiniones' }})</span>
+              </div>
+
+              <div class="reviews-list">
+                @for (review of reviews; track review.id) {
+                  <div class="review-item">
+                    <div class="review-header">
+                      <span class="review-author">{{ review.transeunte?.nombres || 'Usuario' }} {{ review.transeunte?.apellidos || '' }}</span>
+                      <span class="review-stars">{{ '⭐'.repeat(review.rating) }}</span>
+                    </div>
+                    @if (review.comentario) {
+                      <p class="review-comment">{{ review.comentario }}</p>
+                    }
+                    <span class="review-date">{{ review.created_at | date:'mediumDate' }}</span>
+                  </div>
+                }
+              </div>
+            } @else {
+              <p class="empty-reviews">Este negocio todavía no tiene opiniones.</p>
+            }
+
+            @if (transeunteId && !miReview) {
+              <div class="review-form">
+                <h4>Deja tu opinión</h4>
+                <div class="star-picker">
+                  @for (n of [1,2,3,4,5]; track n) {
+                    <button type="button" class="star-btn" [class.active]="n <= nuevoRating" (click)="nuevoRating = n">⭐</button>
+                  }
+                </div>
+                <textarea
+                  [(ngModel)]="nuevoComentario"
+                  placeholder="¿Cómo fue tu experiencia con este negocio? (opcional)"
+                  class="review-textarea"
+                  rows="3">
+                </textarea>
+                <button class="btn-enviar-review" [disabled]="enviandoReview" (click)="enviarReview()">
+                  {{ enviandoReview ? 'Enviando...' : 'Publicar opinión' }}
+                </button>
+              </div>
+            } @else if (!transeunteId && currentUserChecked) {
+              <p class="login-prompt">
+                <a routerLink="/login">Inicia sesión</a> como usuario para dejar tu opinión.
+              </p>
+            } @else if (miReview) {
+              <p class="ya-opinaste">✓ Ya dejaste tu opinión en este negocio.</p>
             }
           </section>
 
@@ -389,6 +458,53 @@ export interface GrupoCategoria {
     .card-desc-preview { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 12px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .card-meta { font-size: 0.8rem; color: var(--text-muted); }
 
+    /* OPINIONES */
+    .reviews-section { margin-top: 20px; margin-bottom: 40px; }
+
+    .rating-summary { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .rating-number { font-size: 2rem; font-weight: 900; color: var(--primary); }
+    .rating-stars { font-size: 1.1rem; }
+    .rating-count { color: var(--text-muted); font-size: 0.9rem; }
+
+    .reviews-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+    .review-item { background: var(--bg-page); border-radius: 14px; padding: 16px 18px; }
+    .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 6px; }
+    .review-author { font-weight: 800; color: var(--primary); font-size: 0.92rem; }
+    .review-stars { font-size: 0.85rem; }
+    .review-comment { color: var(--text-main); margin: 0 0 6px 0; line-height: 1.5; font-size: 0.92rem; }
+    .review-date { color: var(--text-muted); font-size: 0.78rem; }
+
+    .empty-reviews { color: var(--text-muted); margin-bottom: 20px; }
+
+    .review-form {
+      background: #fff; border: 1px solid #e2ebd8; border-radius: 16px;
+      padding: 20px; max-width: 460px;
+    }
+    .review-form h4 { margin: 0 0 12px 0; color: var(--primary); }
+
+    .star-picker { display: flex; gap: 4px; margin-bottom: 12px; }
+    .star-btn {
+      background: none; border: none; font-size: 1.5rem; cursor: pointer;
+      opacity: 0.3; filter: grayscale(1); transition: opacity 0.15s, filter 0.15s;
+      padding: 0;
+    }
+    .star-btn.active { opacity: 1; filter: grayscale(0); }
+
+    .review-textarea {
+      width: 100%; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 12px;
+      font-family: inherit; font-size: 0.9rem; resize: vertical; margin-bottom: 12px;
+      box-sizing: border-box;
+    }
+
+    .btn-enviar-review {
+      background: var(--primary); color: var(--accent); border: none;
+      padding: 10px 20px; border-radius: 12px; font-weight: 800; cursor: pointer;
+    }
+    .btn-enviar-review:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .login-prompt, .ya-opinaste { color: var(--text-muted); font-size: 0.9rem; }
+    .login-prompt a { color: var(--primary); font-weight: 700; }
+
     /* ESTILOS MAPA */
     .company-map-section { margin-top: 20px; margin-bottom: 30px; }
     .map-container {
@@ -480,6 +596,26 @@ export class EmpresaDetalleComponent implements OnInit {
   imagenSeleccionada = '';
   pubSeleccionadaModal: PublicacionConEmpresa | null = null;
 
+  // Opiniones
+  reviews: ReviewEmpresa[] = [];
+  miReview: ReviewEmpresa | null = null;
+  nuevoRating = 5;
+  nuevoComentario = '';
+  enviandoReview = false;
+  // Evita mostrar "inicia sesión" antes de que termine de resolverse el
+  // usuario actual (transeunteId empieza en '' tanto si no hay sesión
+  // como mientras todavía se está consultando).
+  currentUserChecked = false;
+
+  get promedioRating(): number {
+    if (this.reviews.length === 0) return 0;
+    return this.reviews.reduce((suma, r) => suma + r.rating, 0) / this.reviews.length;
+  }
+
+  get promedioRedondeado(): number {
+    return Math.round(this.promedioRating);
+  }
+
   get linkWhatsappEmpresa(): string | null {
     const redWhatsapp = this.redesSociales.find(r =>
       (r.plataformas_sociales?.nombre || '').toLowerCase().includes('whatsapp')
@@ -552,9 +688,72 @@ export class EmpresaDetalleComponent implements OnInit {
       this.empresaId = this.empresa.id;
       await this.cargarRedesSociales();
       await this.cargarPublicacionesDeEmpresa();
+      await this.cargarReviews();
     }
 
+    this.currentUserChecked = true;
     this.cargando = false;
+  }
+
+  async cargarReviews() {
+    if (!this.empresaId) return;
+
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('reviews_empresa')
+      .select(`
+        id,
+        rating,
+        comentario,
+        created_at,
+        transeunte_id,
+        transeunte:transeuntes (
+          nombres,
+          apellidos
+        )
+      `)
+      .eq('empresa_id', this.empresaId)
+      .eq('estado', 'activo')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error al cargar opiniones:', error);
+      return;
+    }
+
+    this.reviews = (data as unknown as ReviewEmpresa[]) || [];
+
+    if (this.transeunteId) {
+      this.miReview = this.reviews.find(r => r.transeunte_id === this.transeunteId) || null;
+    }
+  }
+
+  async enviarReview() {
+    if (!this.transeunteId || !this.empresaId || this.enviandoReview) return;
+
+    this.enviandoReview = true;
+    try {
+      const { error } = await this.authService.getSupabaseClient()
+        .from('reviews_empresa')
+        .insert({
+          empresa_id: this.empresaId,
+          transeunte_id: this.transeunteId,
+          rating: this.nuevoRating,
+          comentario: this.nuevoComentario.trim() || null,
+          estado: 'activo'
+        });
+
+      if (error) {
+        console.error('Error al publicar la opinión:', error);
+        alert('No pudimos publicar tu opinión. Intenta de nuevo.');
+        return;
+      }
+
+      this.nuevoComentario = '';
+      this.nuevoRating = 5;
+      await this.cargarReviews();
+    } finally {
+      this.enviandoReview = false;
+    }
   }
 
   async cargarDatosEmpresa(campo: 'id' | 'alias', valor: string) {

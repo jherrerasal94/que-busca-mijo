@@ -17,6 +17,7 @@ export interface Publicacion {
   foto_3: string | null;
   estado?: string; // 'activo' o 'inactivo'
   created_at: string;
+  slug?: string | null;
 }
 
 export interface Categoria {
@@ -60,6 +61,50 @@ export interface PlanInfo {
             </div>
           }
         }
+      </div>
+
+      <!-- RESUMEN DE MÉTRICAS -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-icon">📦</span>
+          <div class="stat-body">
+            <span class="stat-value">
+              {{ publicacionesActivasCount }}@if (planInfo && planInfo.limite_publicaciones !== null) { / {{ planInfo.limite_publicaciones }} }
+            </span>
+            <span class="stat-label">Publicaciones activas</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span class="stat-icon">❤️</span>
+          <div class="stat-body">
+            <span class="stat-value">{{ likesTotal }}</span>
+            <span class="stat-label">Likes totales</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span class="stat-icon">⭐</span>
+          <div class="stat-body">
+            <span class="stat-value">{{ ratingPromedio !== null ? ratingPromedio.toFixed(1) : '—' }}</span>
+            <span class="stat-label">
+              {{ totalReviews > 0 ? 'Rating promedio (' + totalReviews + ')' : 'Sin opiniones aún' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <span class="stat-icon">🔥</span>
+          <div class="stat-body">
+            @if (publicacionMasPopular) {
+              <span class="stat-value stat-value-text" [title]="publicacionMasPopular.servicio_producto">{{ publicacionMasPopular.servicio_producto }}</span>
+              <span class="stat-label">Más popular · {{ likesCountMap[publicacionMasPopular.id] || 0 }} likes</span>
+            } @else {
+              <span class="stat-value">—</span>
+              <span class="stat-label">Aún sin publicaciones</span>
+            }
+          </div>
+        </div>
       </div>
 
       <div class="grid-layout">
@@ -237,6 +282,20 @@ export interface PlanInfo {
   styles: [`
     .gestion-container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
     .header { margin-bottom: 24px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 16px; display: flex; align-items: center; gap: 12px;
+    }
+    .stat-icon { font-size: 1.8rem; flex-shrink: 0; }
+    .stat-body { display: flex; flex-direction: column; min-width: 0; }
+    .stat-value { font-size: 1.3rem; font-weight: 900; color: #0f172a; line-height: 1.2; }
+    .stat-value-text { font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stat-label { font-size: 0.75rem; color: #64748b; font-weight: 600; margin-top: 2px; }
+
+    @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
     .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
     @media (max-width: 768px) { .grid-layout { grid-template-columns: 1fr; } }
     .card { background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
@@ -341,6 +400,22 @@ export class GestionPublicacionesComponent implements OnInit {
   planInfo: PlanInfo | null = null;
   cargandoPlan = true;
 
+  ratingPromedio: number | null = null;
+  totalReviews = 0;
+
+  get likesTotal(): number {
+    return Object.values(this.likesCountMap).reduce((acc, n) => acc + n, 0);
+  }
+
+  get publicacionMasPopular(): Publicacion | null {
+    if (this.publicaciones.length === 0) return null;
+    return this.publicaciones.reduce((max, p) => {
+      const likesP = this.likesCountMap[p.id] || 0;
+      const likesMax = this.likesCountMap[max.id] || 0;
+      return likesP > likesMax ? p : max;
+    }, this.publicaciones[0]);
+  }
+
   get publicacionesActivasCount(): number {
     return this.publicaciones.filter(p => p.estado !== 'inactivo').length;
   }
@@ -350,6 +425,25 @@ export class GestionPublicacionesComponent implements OnInit {
     if (!this.planInfo) return true; // sin plan asignado => no puede publicar
     if (this.planInfo.limite_publicaciones === null) return false; // ilimitado
     return this.publicacionesActivasCount >= this.planInfo.limite_publicaciones;
+  }
+
+  // Mismo criterio que la migración SQL de Fase 3: minúsculas, sin acentos,
+  // espacios a guiones, + sufijo corto para evitar choques entre productos
+  // con el mismo nombre. Se genera una sola vez al crear; nunca se
+  // regenera en una edición, para no romper links ya compartidos.
+  private generarSlug(texto: string): string {
+    const base = texto
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-');
+
+    const sufijo = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().slice(0, 8)
+      : Math.random().toString(36).slice(2, 10);
+
+    return `${base}-${sufijo}`;
   }
 
   mensajeLimite(): string {
@@ -376,6 +470,28 @@ export class GestionPublicacionesComponent implements OnInit {
     await this.cargarPlanEmpresa();
     await this.cargarCategorias();
     await this.cargarPublicaciones();
+    await this.cargarRatingEmpresa();
+  }
+
+  async cargarRatingEmpresa() {
+    const user = await this.authService.getUser();
+    if (!user) return;
+
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('reviews_empresa')
+      .select('rating')
+      .eq('empresa_id', user.id)
+      .eq('estado', 'activo');
+
+    if (error || !data || data.length === 0) {
+      this.ratingPromedio = null;
+      this.totalReviews = 0;
+      return;
+    }
+
+    const suma = data.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0);
+    this.ratingPromedio = suma / data.length;
+    this.totalReviews = data.length;
   }
 
   async cargarPlanEmpresa() {
@@ -565,15 +681,24 @@ export class GestionPublicacionesComponent implements OnInit {
     let error = null;
 
     if (this.editingId) {
+      const publicacionActual = this.publicaciones.find(p => p.id === this.editingId);
+      const updatePayload: any = { ...payload };
+
+      // Red de seguridad: si por algún motivo esta publicación no tiene
+      // slug (ej. no alcanzó el backfill de Fase 3), se le genera aquí.
+      if (publicacionActual && !publicacionActual.slug) {
+        updatePayload.slug = this.generarSlug(servicio_producto);
+      }
+
       const res = await this.authService.getSupabaseClient()
         .from('publicaciones')
-        .update(payload)
+        .update(updatePayload)
         .eq('id', this.editingId);
       error = res.error;
     } else {
       const res = await this.authService.getSupabaseClient()
         .from('publicaciones')
-        .insert({ ...payload, estado: 'activo' });
+        .insert({ ...payload, estado: 'activo', slug: this.generarSlug(servicio_producto) });
       error = res.error;
     }
 

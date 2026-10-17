@@ -1230,7 +1230,7 @@ export class PerfilComponent implements OnInit {
       }
 
       const { data: solicitudData } = await supabase
-        .from('solicitudes_planes')
+        .from('solicitudes_plan')
         .select('*, planes(nombre)')
         .eq('empresa_id', empresaId)
         .eq('estado', 'pendiente')
