@@ -1,0 +1,209 @@
+:host { display: block; color: #062b66; font-family: 'Segoe UI', Roboto, sans-serif; }
+* { box-sizing: border-box; }
+
+.page-wrapper {
+  background-color: #f7faf4;
+  min-height: calc(100vh - 78px);
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  max-width: 1350px;
+  margin: 0 auto;
+  padding: 36px 24px;
+  width: 100%;
+  flex: 1;
+}
+
+/* HEADER */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.eyebrow { margin: 0 0 6px; color: #54832a; font-size: .75rem; font-weight: 900; letter-spacing: .12em; }
+.admin-header h1 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 900; color: #062b66; }
+.admin-header h1 span { color: #64bd00; }
+.subtitle { margin: 6px 0 0; color: #617493; font-size: .95rem; }
+
+.btn-excel {
+  background: #107c41; /* Verde característico de Excel */
+  color: #fff;
+  border: none;
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(16, 124, 65, 0.25);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.btn-excel:hover { opacity: 0.9; transform: translateY(-1px); }
+
+/* CONTROLES Y FILTROS */
+.admin-controls {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.search-bar {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border: 1.5px solid #cbd6e4;
+  border-radius: 12px;
+  padding: 4px 14px;
+}
+
+.search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  padding: 10px;
+  font-size: 0.95rem;
+  color: #062b66;
+  background: transparent;
+}
+
+.filter-select {
+  background: #fff;
+  border: 1.5px solid #cbd6e4;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  color: #062b66;
+  outline: none;
+  cursor: pointer;
+}
+
+/* TABLA TIPO EXCEL */
+.table-container {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 30px rgba(6,43,102,0.06);
+  overflow: hidden;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.excel-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.excel-table th {
+  background: #f1f5f9;
+  color: #082f6b;
+  font-weight: 800;
+  padding: 14px 18px;
+  border-bottom: 2px solid #cbd6e4;
+  white-space: nowrap;
+}
+
+.excel-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #eef2f6;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.excel-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.company-name-cell {
+  display: flex;
+  flex-direction: column;
+}
+.company-name-cell small {
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.contact-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.badge-plan {
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* ESTADOS DEL PLAN */
+.status-badge {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  display: inline-block;
+}
+.status-activo { background: #dcfce7; color: #15803d; }
+.status-pendiente { background: #fef9c3; color: #a16207; }
+.status-vencido { background: #fee2e2; color: #b91c1c; }
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.select-action {
+  background: #f1f5f9;
+  border: 1px solid #cbd6e4;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  color: #082f6b;
+  font-weight: 600;
+}
+
+.btn-view {
+  background: #eff8e6;
+  color: #388e3c;
+  padding: 6px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-view:hover { background: #e2ebd8; }
+
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #64748b;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 12px;
+}

@@ -1,0 +1,113 @@
+<div class="page-wrapper">
+  <main class="main-content">
+    
+    <!-- CABECERA DEL PANEL DE ADMINISTRACIÓN -->
+    <header class="admin-header">
+      <div>
+        <p class="eyebrow">PANEL DE CONTROL ADMIN</p>
+        <h1>Listado de <span>Empresas</span></h1>
+        <p class="subtitle">Gestiona las empresas registradas, supervisa sus planes y controla el directorio.</p>
+      </div>
+      <button class="btn-excel" (click)="exportarExcel()">
+        📊 Exportar a Excel (CSV)
+      </button>
+    </header>
+
+    <!-- FILTROS Y BÚSQUEDA -->
+    <section class="admin-controls">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (input)="aplicarFiltros()"
+          placeholder="Buscar por nombre, correo o teléfono..."
+          class="search-input"
+        />
+      </div>
+
+      <select [(ngModel)]="filtroEstado" (change)="aplicarFiltros()" class="filter-select">
+        <option value="">📋 Todos los estados de plan</option>
+        <option value="activo">🟢 Activo</option>
+        <option value="pendiente">🟡 Pendiente</option>
+        <option value="vencido">🔴 Vencido</option>
+      </select>
+    </section>
+
+    <!-- TABLA TIPO EXCEL -->
+    <section class="table-container">
+      @if (cargando) {
+        <div class="loading-state">Cargando registros de empresas...</div>
+      } @else if (empresasFiltradas.length === 0) {
+        <div class="empty-state">
+          <span class="empty-icon">📁</span>
+          <h3>No se encontraron empresas</h3>
+          <p>Intenta con otro término de búsqueda o cambia los filtros de estado.</p>
+        </div>
+      } @else {
+        <div class="table-scroll">
+          <table class="excel-table">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th>Contacto</th>
+                <th>Ubicación</th>
+                <th>Plan</th>
+                <th>Estado</th>
+                <th>Fecha Registro</th>
+                <th>Acciones / Cambiar Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (emp of empresasFiltradas; track emp.id) {
+                <tr>
+                  <td>
+                    <div class="company-name-cell">
+                      <strong>{{ emp.nombre }}</strong>
+                      <small>{{ emp.id.substring(0, 8) }}...</small>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="contact-cell">
+                      <span>✉️ {{ emp.correo_empresarial || 'Sin correo' }}</span>
+                      <span>📞 {{ emp.rep_telefono || 'Sin teléfono' }}</span>
+                    </div>
+                  </td>
+                  <td>📍 {{ emp.ciudad?.nombre || 'Región general' }}</td>
+                  <td>
+                    <span class="badge-plan">{{ emp.nombre || 'Estándar' }}</span>
+                  </td>
+                  <td>
+                    <span class="status-badge" [ngClass]="{
+                      'status-activo': emp.estado === 'activo',
+                      'status-pendiente': emp.estado === 'pendiente',
+                      'status-vencido': emp.estado === 'vencido'
+                    }">
+                      {{ emp.estado | titlecase }}
+                    </span>
+                  </td>
+                  <td>{{ emp.created_at | date:'dd/MM/yyyy' }}</td>
+                  <td>
+                    <div class="action-buttons">
+                      <select 
+                        class="select-action"
+                        [ngModel]="emp.estado"
+                        (ngModelChange)="cambiarEstadoPlan(emp.id, $event)">
+                        <option value="activo">Activar</option>
+                        <option value="pendiente">Dejar Pendiente</option>
+                        <option value="vencido">Marcar Vencido</option>
+                      </select>
+                      <a [routerLink]="['/empresa', emp.id]" class="btn-view" target="_blank" title="Ver perfil público">👁️ Ver</a>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+  </main>
+  <app-footer></app-footer>
+</div>

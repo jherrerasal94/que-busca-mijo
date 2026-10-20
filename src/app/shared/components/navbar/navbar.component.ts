@@ -177,6 +177,14 @@ export interface EmpresaInfo {
                       <span class="item-icon">📋</span>
                       <span>Administrar Solicitudes</span>
                     </a>
+
+                    <a routerLink="/admin/empresas"
+                       routerLinkActive="active-item"
+                       class="dropdown-item admin-item"
+                       (click)="cerrarMenu()">
+                      <span class="item-icon">📋</span>
+                      <span>Administrar Empresas</span>
+                    </a>
                   }
 
                   <a routerLink="/perfil"

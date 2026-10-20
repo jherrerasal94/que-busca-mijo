@@ -9,6 +9,7 @@ import { PlanesComponent } from './pages/planes/planes.component';
 import { AdquirirPlanComponent } from './pages/adquirir-plan/adquirir-plan.component';
 import { GestionarPlanesComponent } from './pages/gestionar-planes/gestionar-planes.component';
 import { GestionCategoriasComponent } from './admin/gestion-categorias/gestion-categorias.component';
+import { AdminEmpresasComponent } from './admin/admin-empresas/admin-empresas.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },                  // Página principal
@@ -38,6 +39,11 @@ export const routes: Routes = [
   {
     path: 'admin/categorias',
     component: GestionCategoriasComponent,
+    canActivate: [AuthGuards.isAdmin]                      // 🔒 Exclusivo para Administradores (ajusta si tu guard tiene otro nombre)
+  },
+  {
+    path: 'admin/empresas',
+    component: AdminEmpresasComponent,
     canActivate: [AuthGuards.isAdmin]                      // 🔒 Exclusivo para Administradores (ajusta si tu guard tiene otro nombre)
   },
   {

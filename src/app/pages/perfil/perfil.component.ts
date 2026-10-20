@@ -62,7 +62,7 @@ interface PlataformaSocial {
                       <h4>{{ planActual.nombre }}</h4>
                       <p>{{ planActual.descripcion || 'Sin descripción' }}</p>
                       <div class="plan-details-tags">
-                        <span>📦 Límite: <strong>{{ planActual.limite_publicaciones === -1 ? 'Ilimitado' : planActual.limite_publicaciones }}</strong></span>
+                        <span>📦 Límite: <strong>{{ planActual.limite_publicaciones === null ? 'Ilimitado' : planActual.limite_publicaciones }}</strong></span>
                         <span>💰 Costo: <strong>$ {{ planActual.costo | number:'1.0-2' }}</strong></span>
                       </div>
                     } @else {
@@ -77,6 +77,36 @@ interface PlataformaSocial {
                       <div>
                         <strong>Solicitud en proceso</strong>
                         <p>Has solicitado el plan <strong>{{ solicitudPendiente.planes?.nombre }}</strong>. Un administrador se pondrá en contacto contigo para validar tu pago y aprobarla.</p>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Historial completo de solicitudes -->
+                  @if (historialSolicitudes.length > 0) {
+                    <div class="historial-solicitudes">
+                      <h4>Historial de solicitudes</h4>
+                      <div class="historial-list">
+                        @for (sol of historialSolicitudes; track sol.id) {
+                          <div class="historial-item">
+                            <div class="historial-item-top">
+                              <span class="historial-plan">{{ sol.planes?.nombre || 'Plan' }}</span>
+                              <span
+                                class="historial-badge"
+                                [class.badge-pendiente]="sol.estado_solicitud === 'pendiente'"
+                                [class.badge-aprobado]="sol.estado_solicitud === 'aprobado'"
+                                [class.badge-rechazado]="sol.estado_solicitud === 'rechazado'">
+                                {{ sol.estado_solicitud === 'pendiente' ? '⏳ Pendiente' : (sol.estado_solicitud === 'aprobado' ? '✅ Aprobado' : '❌ Rechazado') }}
+                              </span>
+                            </div>
+                            <span class="historial-fecha">Solicitado: {{ sol.fecha_solicitud | date:'mediumDate' }}</span>
+                            @if (sol.fecha_respuesta) {
+                              <span class="historial-fecha">Respondido: {{ sol.fecha_respuesta | date:'mediumDate' }}</span>
+                            }
+                            @if (sol.notas_admin) {
+                              <p class="historial-notas">"{{ sol.notas_admin }}"</p>
+                            }
+                          </div>
+                        }
                       </div>
                     </div>
                   }
@@ -601,6 +631,69 @@ interface PlataformaSocial {
       margin: 0;
     }
 
+    .historial-solicitudes {
+      margin-top: 16px;
+    }
+
+    .historial-solicitudes h4 {
+      margin: 0 0 10px 0;
+      color: var(--primary, #002b66);
+      font-size: 0.95rem;
+    }
+
+    .historial-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .historial-item {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .historial-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .historial-plan {
+      font-weight: 800;
+      color: #0f172a;
+      font-size: 0.9rem;
+    }
+
+    .historial-badge {
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .badge-pendiente { background: #dbeafe; color: #1e40af; }
+    .badge-aprobado { background: #dcfce7; color: #166534; }
+    .badge-rechazado { background: #fee2e2; color: #991b1b; }
+
+    .historial-fecha {
+      display: block;
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+
+    .historial-notas {
+      margin: 6px 0 0 0;
+      font-size: 0.82rem;
+      color: #475569;
+      font-style: italic;
+    }
+
     .form-card {
       background: var(--bg-white);
       border: 1px solid #e2e8f0;
@@ -924,6 +1017,7 @@ export class PerfilComponent implements OnInit {
 
   planActual: any = null;
   solicitudPendiente: any = null;
+  historialSolicitudes: any[] = [];
   cargandoPlan = false;
 
   listaPaises: Pais[] = [];
@@ -1233,11 +1327,23 @@ export class PerfilComponent implements OnInit {
         .from('solicitudes_plan')
         .select('*, planes(nombre)')
         .eq('empresa_id', empresaId)
-        .eq('estado', 'pendiente')
+        .eq('estado_solicitud', 'pendiente')
         .maybeSingle();
 
       if (solicitudData) {
         this.solicitudPendiente = solicitudData;
+      }
+
+      // Historial completo (pendientes, aprobadas y rechazadas), más
+      // recientes primero -- no solo la pendiente actual.
+      const { data: historialData, error: historialError } = await supabase
+        .from('solicitudes_plan')
+        .select('id, estado_solicitud, fecha_solicitud, fecha_respuesta, notas_admin, planes(nombre)')
+        .eq('empresa_id', empresaId)
+        .order('fecha_solicitud', { ascending: false });
+
+      if (!historialError && historialData) {
+        this.historialSolicitudes = historialData;
       }
     } catch (err) {
       console.error('Error al cargar plan de la empresa:', err);
