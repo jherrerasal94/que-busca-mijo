@@ -54,10 +54,15 @@ export interface PlanInfo {
               }
               publicaciones activas
             </div>
+          } @else if (planVencido) {
+            <div class="plan-usage-banner limite">
+              ⚠️ Tu plan venció.
+              <a routerLink="/adquirir-plan">Renueva aquí</a> para seguir publicando.
+            </div>
           } @else {
             <div class="plan-usage-banner limite">
               ⚠️ No tienes un plan activo asignado.
-              <a routerLink="/planes">Solicita uno aquí</a> para poder publicar.
+              <a routerLink="/adquirir-plan">Solicita uno aquí</a> para poder publicar.
             </div>
           }
         }
@@ -399,6 +404,7 @@ export class GestionPublicacionesComponent implements OnInit {
 
   planInfo: PlanInfo | null = null;
   cargandoPlan = true;
+  planVencido = false;
 
   ratingPromedio: number | null = null;
   totalReviews = 0;
@@ -449,6 +455,9 @@ export class GestionPublicacionesComponent implements OnInit {
   mensajeLimite(): string {
     if (this.cargandoPlan) {
       return 'Cargando información de tu plan, intenta de nuevo en un momento.';
+    }
+    if (this.planVencido) {
+      return 'Tu plan venció. Renueva tu suscripción para poder seguir publicando.';
     }
     if (!this.planInfo) {
       return 'No tienes un plan activo asignado. Solicita un plan para poder publicar.';
@@ -508,6 +517,7 @@ export class GestionPublicacionesComponent implements OnInit {
       .from('empresas')
       .select(`
         plan_id,
+        plan_valido_hasta,
         plan:planes (
           nombre,
           limite_publicaciones
@@ -518,8 +528,19 @@ export class GestionPublicacionesComponent implements OnInit {
 
     if (error || !data?.plan) {
       this.planInfo = null;
+      this.planVencido = false;
     } else {
-      this.planInfo = data.plan as unknown as PlanInfo;
+      // Un plan con plan_id asignado pero ya vencido NO debe tratarse
+      // como activo -- hasta ahora nada verificaba esta fecha.
+      const vencido = !!data.plan_valido_hasta && new Date(data.plan_valido_hasta) < new Date();
+
+      if (vencido) {
+        this.planInfo = null;
+        this.planVencido = true;
+      } else {
+        this.planInfo = data.plan as unknown as PlanInfo;
+        this.planVencido = false;
+      }
     }
     this.cargandoPlan = false;
   }

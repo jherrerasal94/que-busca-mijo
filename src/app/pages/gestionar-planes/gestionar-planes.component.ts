@@ -282,12 +282,53 @@ export class GestionarPlanesComponent implements OnInit {
     if (error) {
       console.error('Error al actualizar:', error);
       alert('Error al actualizar el estado de la solicitud.');
-    } else {
-      sol.estado_solicitud = nuevoEstado;
-      sol.fecha_respuesta = fechaActual;
-      this.listaSolicitudes = [...this.listaSolicitudes];
-      alert(`La solicitud ha sido cambiada a: ${nuevoEstado.toUpperCase()}`);
+      return;
     }
+
+    // ESTA ERA LA PIEZA QUE FALTABA: hasta ahora, aprobar una solicitud
+    // solo cambiaba el estado de la fila en solicitudes_plan, pero nunca
+    // le asignaba el plan a la empresa en sí (empresas.plan_id). El
+    // trigger de Fase 4 (proteger_campos_admin_empresas) permite este
+    // cambio porque quien lo ejecuta es un admin.
+    if (nuevoEstado === 'aprobado') {
+      const fechaVencimiento = new Date(fechaActual);
+      fechaVencimiento.setMonth(fechaVencimiento.getMonth() + 1); // membresía de 1 mes, igual que getAlertaVencimiento()
+
+      const { error: errorEmpresa } = await supabase
+        .from('empresas')
+        .update({
+          plan_id: sol.plan_solicitado_id,
+          plan_valido_desde: fechaActual,
+          plan_valido_hasta: fechaVencimiento.toISOString()
+        })
+        .eq('id', sol.empresa_id);
+
+      if (errorEmpresa) {
+        console.error('Error al asignar el plan a la empresa:', errorEmpresa);
+        alert('La solicitud se marcó como aprobada, pero no se pudo asignar el plan a la empresa. Avisa a soporte técnico.');
+        return;
+      }
+    } else if (nuevoEstado === 'rechazado') {
+      // Si se está rechazando/revocando un plan que estaba activo,
+      // se le retira el plan a la empresa.
+      const { error: errorEmpresa } = await supabase
+        .from('empresas')
+        .update({
+          plan_id: null,
+          plan_valido_desde: null,
+          plan_valido_hasta: null
+        })
+        .eq('id', sol.empresa_id);
+
+      if (errorEmpresa) {
+        console.error('Error al revocar el plan de la empresa:', errorEmpresa);
+      }
+    }
+
+    sol.estado_solicitud = nuevoEstado;
+    sol.fecha_respuesta = fechaActual;
+    this.listaSolicitudes = [...this.listaSolicitudes];
+    alert(`La solicitud ha sido cambiada a: ${nuevoEstado.toUpperCase()}`);
   }
 
   async actualizarNotas(sol: SolicitudPlan) {

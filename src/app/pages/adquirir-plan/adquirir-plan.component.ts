@@ -9,7 +9,7 @@ interface Plan {
   nombre: string;
   descripcion: string;
   costo: number;
-  limite_publicaciones: number;
+  limite_publicaciones: number | null;
   beneficios?: string[];
 }
 
@@ -90,7 +90,7 @@ interface Plan {
                 <div class="plan-features">
                   <div class="feature-item">
                     <span>📦 Límite de publicaciones:</span>
-                    <strong>{{ plan.limite_publicaciones === -1 ? 'Ilimitado' : plan.limite_publicaciones }}</strong>
+                    <strong>{{ plan.limite_publicaciones === null ? 'Ilimitado' : plan.limite_publicaciones }}</strong>
                   </div>
                 </div>
 
