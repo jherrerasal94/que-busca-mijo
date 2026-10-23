@@ -23,6 +23,9 @@ export interface PublicacionConEmpresa {
   // Nullable mientras no todas las publicaciones tengan slug generado
   // (ver migración de Fase 3). El botón "Compartir" se oculta si falta.
   slug?: string | null;
+  // Boost pagado (Fase 6). Si es una fecha futura, la publicación está
+  // destacada y debe aparecer primero y con badge visual.
+  destacado_hasta?: string | null;
   empresa?: {
     nombre?: string;
     direccion?: string;
@@ -219,10 +222,18 @@ export class PublicacionesService {
     });
   }
 
+  estaDestacada(pub: PublicacionConEmpresa): boolean {
+    return !!pub.destacado_hasta && new Date(pub.destacado_hasta) > new Date();
+  }
+
   // "Relevancia" aquí es una puntuación simple por coincidencia de texto
   // (no hay motor de búsqueda semántica aún, tal como pide el brief: primero
   // una búsqueda tradicional sólida). Sin query de texto, cae a "recientes".
+  // En ambos casos, las publicaciones destacadas (boost pagado, Fase 6)
+  // siempre van primero.
   ordenar(lista: PublicacionConEmpresa[], orden: OrdenPublicaciones, query?: string): PublicacionConEmpresa[] {
+    let ordenada: PublicacionConEmpresa[];
+
     if (orden === 'relevancia' && query && query.trim()) {
       const q = query.toLowerCase().trim();
       const puntaje = (pub: PublicacionConEmpresa): number => {
@@ -234,15 +245,21 @@ export class PublicacionesService {
         return score;
       };
 
-      return [...lista].sort((a, b) => {
+      ordenada = [...lista].sort((a, b) => {
         const diff = puntaje(b) - puntaje(a);
         if (diff !== 0) return diff;
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
+    } else {
+      // 'recientes', o 'relevancia' sin texto de búsqueda: por fecha de creación.
+      ordenada = [...lista].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
 
-    // 'recientes', o 'relevancia' sin texto de búsqueda: por fecha de creación.
-    return [...lista].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return ordenada.sort((a, b) => {
+      const destacadaA = this.estaDestacada(a) ? 1 : 0;
+      const destacadaB = this.estaDestacada(b) ? 1 : 0;
+      return destacadaB - destacadaA; // sort es estable: no rompe el orden dentro de cada grupo
+    });
   }
 
   obtenerNombreCategoria(categorias: Categoria[], categoriaId: string): string {

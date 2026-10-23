@@ -140,6 +140,10 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
                       <div class="card-image-placeholder">🏷️</div>
                     }
 
+                    @if (estaDestacada(pub)) {
+                      <span class="badge-destacado-card">⭐ Destacado</span>
+                    }
+
                     <button
                       class="btn-favorite"
                       [class.liked]="likesMap[pub.id]?.hasLiked"
@@ -720,6 +724,19 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    .badge-destacado-card {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #fbbf24;
+      color: #78350f;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      z-index: 2;
     }
 
     .card-category-badge {
@@ -1423,7 +1440,7 @@ export class HomeComponent implements OnInit {
   async cargarPublicaciones() {
     this.cargando = true;
     this.publicaciones = await this.publicacionesService.cargarPublicaciones();
-    this.publicacionesFiltradas = [...this.publicaciones];
+    this.publicacionesFiltradas = this.publicacionesService.ordenar([...this.publicaciones], 'recientes');
     await this.cargarEstadoLikesParaTodas();
     this.cargando = false;
   }
@@ -1468,13 +1485,17 @@ export class HomeComponent implements OnInit {
   }
 
   filtrarPublicaciones() {
-    this.publicacionesFiltradas = this.publicacionesService.filtrar(this.publicaciones, {
+    const filtradas = this.publicacionesService.filtrar(this.publicaciones, {
       query: this.searchQuery,
       categoriaId: this.categoriaSeleccionadaId,
       paisId: this.filtroPaisId,
       departamentoId: this.filtroDepartamentoId,
       ciudadId: this.filtroCiudadId
     });
+
+    // 'recientes' porque el Home no tiene selector de orden; esto solo
+    // asegura que las destacadas (Fase 6) floten arriba del preview.
+    this.publicacionesFiltradas = this.publicacionesService.ordenar(filtradas, 'recientes');
   }
 
   buscarEnResultados() {
@@ -1515,6 +1536,10 @@ export class HomeComponent implements OnInit {
 
   obtenerLinkWhatsapp(pub: PublicacionConEmpresa): string | null {
     return this.publicacionesService.obtenerLinkWhatsapp(pub);
+  }
+
+  estaDestacada(pub: PublicacionConEmpresa): boolean {
+    return this.publicacionesService.estaDestacada(pub);
   }
 
   abrirModal(pub: PublicacionConEmpresa) {

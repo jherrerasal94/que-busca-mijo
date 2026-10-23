@@ -1,6 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
@@ -18,6 +18,15 @@ export interface Publicacion {
   estado?: string; // 'activo' o 'inactivo'
   created_at: string;
   slug?: string | null;
+  destacado_hasta?: string | null;
+}
+
+export interface SolicitudDestacado {
+  id: string;
+  publicacion_id: string;
+  dias_solicitados: number;
+  estado_solicitud: 'pendiente' | 'aprobado' | 'rechazado';
+  fecha_solicitud: string;
 }
 
 export interface Categoria {
@@ -35,7 +44,7 @@ export interface PlanInfo {
 @Component({
   selector: 'app-gestion-publicaciones',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, RouterLink],
   template: `
     <div class="gestion-container">
       <div class="header">
@@ -245,6 +254,9 @@ export interface PlanInfo {
                       <span class="badge-estado" [class.activo]="post.estado !== 'inactivo'" [class.inactivo]="post.estado === 'inactivo'">
                         {{ post.estado === 'inactivo' ? 'Inactivo' : 'Activo' }}
                       </span>
+                      @if (estaDestacada(post)) {
+                        <span class="badge-destacado" [title]="'Destacada hasta ' + (post.destacado_hasta | date:'mediumDate')">⭐ Destacada</span>
+                      }
                     </div>
 
                     @if (post.categoria_id) {
@@ -275,6 +287,30 @@ export interface PlanInfo {
                       [title]="post.estado === 'inactivo' ? (limiteAlcanzado ? 'Alcanzaste el límite de tu plan' : 'Activar') : 'Desactivar'">
                       {{ post.estado === 'inactivo' ? '✅' : '🚫' }}
                     </button>
+
+                    @if (!puedeDestacar) {
+                      <span class="destacar-hint-disabled" title="Disponible solo en planes Pro y Premium">⭐</span>
+                    } @else if (estaDestacada(post)) {
+                      <span class="destacar-hint" [title]="'Hasta ' + (post.destacado_hasta | date:'mediumDate')">
+                        ⭐ {{ post.destacado_hasta | date:'shortDate' }}
+                      </span>
+                    } @else if (obtenerSolicitudDestacado(post.id)?.estado_solicitud === 'pendiente') {
+                      <span class="destacar-hint">⏳ Pendiente</span>
+                    } @else if (publicacionEnSeleccionDestacado === post.id) {
+                      <div class="destacar-picker">
+                        <select [(ngModel)]="diasDestacadoSeleccionados" class="destacar-select">
+                          <option [ngValue]="7">7 días</option>
+                          <option [ngValue]="15">15 días</option>
+                          <option [ngValue]="30">30 días</option>
+                        </select>
+                        <button (click)="confirmarSolicitudDestacado(post)" class="btn-icon btn-confirmar-destacado" title="Confirmar solicitud">✔️</button>
+                        <button (click)="publicacionEnSeleccionDestacado = null" class="btn-icon" title="Cancelar">✕</button>
+                      </div>
+                    } @else {
+                      <button (click)="publicacionEnSeleccionDestacado = post.id" class="btn-icon btn-destacar" title="Solicitar destacado">
+                        ⭐
+                      </button>
+                    }
                   </div>
                 </div>
               }
@@ -382,6 +418,24 @@ export interface PlanInfo {
       opacity: 0.4;
       cursor: not-allowed;
     }
+
+    .badge-destacado {
+      background: #fef3c7; color: #92400e; font-size: 0.7rem; font-weight: 800;
+      padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    }
+
+    .btn-destacar { background: #fef3c7; color: #92400e; }
+    .destacar-hint {
+      font-size: 0.75rem; font-weight: 800; color: #92400e; background: #fef3c7;
+      padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+    }
+    .destacar-hint-disabled {
+      font-size: 0.9rem; opacity: 0.35; padding: 6px; cursor: not-allowed;
+    }
+
+    .destacar-picker { display: flex; align-items: center; gap: 4px; }
+    .destacar-select { font-size: 0.78rem; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0; }
+    .btn-confirmar-destacado { background: #dcfce7; color: #166534; }
   `]
 })
 export class GestionPublicacionesComponent implements OnInit {
@@ -405,6 +459,23 @@ export class GestionPublicacionesComponent implements OnInit {
   planInfo: PlanInfo | null = null;
   cargandoPlan = true;
   planVencido = false;
+
+  // Destacados: exclusivo para Pro y Premium.
+  solicitudesDestacadoMap: { [publicacionId: string]: SolicitudDestacado } = {};
+  publicacionEnSeleccionDestacado: string | null = null;
+  diasDestacadoSeleccionados: number = 7;
+
+  get puedeDestacar(): boolean {
+    return this.planInfo?.nombre === 'Pro' || this.planInfo?.nombre === 'Premium';
+  }
+
+  estaDestacada(post: Publicacion): boolean {
+    return !!post.destacado_hasta && new Date(post.destacado_hasta) > new Date();
+  }
+
+  obtenerSolicitudDestacado(publicacionId: string): SolicitudDestacado | undefined {
+    return this.solicitudesDestacadoMap[publicacionId];
+  }
 
   ratingPromedio: number | null = null;
   totalReviews = 0;
@@ -480,6 +551,53 @@ export class GestionPublicacionesComponent implements OnInit {
     await this.cargarCategorias();
     await this.cargarPublicaciones();
     await this.cargarRatingEmpresa();
+    await this.cargarSolicitudesDestacado();
+  }
+
+  async cargarSolicitudesDestacado() {
+    const user = await this.authService.getUser();
+    if (!user) return;
+
+    const { data, error } = await this.authService.getSupabaseClient()
+      .from('solicitudes_destacado')
+      .select('id, publicacion_id, dias_solicitados, estado_solicitud, fecha_solicitud')
+      .eq('empresa_id', user.id)
+      .order('fecha_solicitud', { ascending: false });
+
+    if (error || !data) return;
+
+    // Solo nos interesa la solicitud más reciente por publicación
+    // (la lista ya viene ordenada de más reciente a más antigua).
+    const mapa: { [publicacionId: string]: SolicitudDestacado } = {};
+    for (const sol of data as SolicitudDestacado[]) {
+      if (!mapa[sol.publicacion_id]) {
+        mapa[sol.publicacion_id] = sol;
+      }
+    }
+    this.solicitudesDestacadoMap = mapa;
+  }
+
+  async confirmarSolicitudDestacado(post: Publicacion) {
+    const user = await this.authService.getUser();
+    if (!user) return;
+
+    const { error } = await this.authService.getSupabaseClient()
+      .from('solicitudes_destacado')
+      .insert({
+        publicacion_id: post.id,
+        empresa_id: user.id,
+        dias_solicitados: this.diasDestacadoSeleccionados,
+        estado_solicitud: 'pendiente'
+      });
+
+    if (error) {
+      console.error('Error al solicitar destacado:', error);
+      alert('No pudimos registrar tu solicitud de destacado. Intenta de nuevo.');
+      return;
+    }
+
+    this.publicacionEnSeleccionDestacado = null;
+    await this.cargarSolicitudesDestacado();
   }
 
   async cargarRatingEmpresa() {

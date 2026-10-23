@@ -51,6 +51,11 @@ export const routes: Routes = [
     component: GestionarPlanesComponent,
     canActivate: [AuthGuards.isAdmin]                      // 🔒 Exclusivo para Administradores (ajusta si tu guard tiene otro nombre)
   },
+  {
+    path: 'admin-destacados',
+    loadComponent: () => import('./pages/gestionar-destacados/gestionar-destacados.component').then(m => m.GestionarDestacadosComponent),
+    canActivate: [AuthGuards.isAdmin]
+  },
 
   { path: '**', redirectTo: '' }                           // Redirección de fallback
 ];

@@ -175,9 +175,16 @@ export interface EmpresaInfo {
                        class="dropdown-item admin-item"
                        (click)="cerrarMenu()">
                       <span class="item-icon">📋</span>
-                      <span>Administrar Solicitudes</span>
+                      <span>Solicitudes de Planes</span>
                     </a>
 
+                    <a routerLink="/admin-destacados"
+                       routerLinkActive="active-item"
+                       class="dropdown-item admin-item"
+                       (click)="cerrarMenu()">
+                      <span class="item-icon">⭐</span>
+                      <span>Solicitudes de Destacados</span>
+                    </a>
                     <a routerLink="/admin/empresas"
                        routerLinkActive="active-item"
                        class="dropdown-item admin-item"

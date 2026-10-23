@@ -117,11 +117,15 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
             <div class="cards-grid">
               @for (pub of publicacionesOrdenadas; track pub.id) {
                 <div class="card" (click)="abrirModal(pub)">
-                  <div class="card-image-container" [style.--bg-img]="pub.foto_1 ? 'url(' + pub.foto_1 + ')' : null">
+                  <div class="card-image-container">
                     @if (pub.foto_1) {
                       <img [src]="pub.foto_1" [alt]="pub.servicio_producto" class="card-image" />
                     } @else {
                       <div class="card-image-placeholder">🏷️</div>
+                    }
+
+                    @if (estaDestacada(pub)) {
+                      <span class="badge-destacado-card">⭐ Destacado</span>
                     }
 
                     <button
@@ -151,9 +155,7 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
 
                     <p class="business-name">🏢 {{ pub.empresa?.nombre || 'Empresa Local' }}</p>
 
-                    <div class="card-hover-action">
-                      <button class="btn-outline">Ver detalle ➔</button>
-                    </div>
+                    <button class="btn-outline">Ver detalle ➔</button>
                   </div>
                 </div>
               }
@@ -173,19 +175,12 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
           <div class="modal-content" (click)="$event.stopPropagation()">
             <button class="btn-close-modal" (click)="cerrarModal()" title="Cerrar" aria-label="Cerrar detalle">✕</button>
 
-            <div
-              class="modal-gallery-main"
-              [class.is-fullscreen]="isZoomed"
-              (click)="toggleZoomFullscreen()">
+            <div class="modal-gallery-main">
               @if (imagenSeleccionada) {
-                <img [src]="imagenSeleccionada" [alt]="publicacionSeleccionada.servicio_producto" class="gallery-main-img" [class.zoomed]="isZoomed" />
+                <img [src]="imagenSeleccionada" [alt]="publicacionSeleccionada.servicio_producto" class="gallery-main-img" />
               } @else {
                 <div class="gallery-placeholder">🏷️</div>
               }
-
-              <div class="zoom-hint">
-                {{ isZoomed ? '🔍 Clic para alejar' : '🔍 Haz clic para ampliar imagen' }}
-              </div>
 
               @if (publicacionSeleccionada.categoria_id) {
                 <span class="modal-category-badge">📁 {{ obtenerNombreCategoria(publicacionSeleccionada.categoria_id) }}</span>
@@ -198,14 +193,13 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
 
             @if (fotosPublicacionSeleccionada.length > 1) {
               <div class="modal-thumbnails">
-                @for (foto of fotosPublicacionSeleccionada; track foto; let idx = $index) {
+                @for (foto of fotosPublicacionSeleccionada; track foto) {
                   <button
                     type="button"
                     class="thumbnail-btn"
                     [class.active]="foto === imagenSeleccionada"
-                    (click)="seleccionarImagen(foto)"
-                    [title]="'Ver foto ' + (idx + 1)">
-                    <img [src]="foto" [alt]="'Miniatura ' + (idx + 1)" />
+                    (click)="seleccionarImagen(foto)">
+                    <img [src]="foto" alt="Miniatura de la publicación" />
                   </button>
                 }
               </div>
@@ -379,66 +373,33 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       gap: 24px;
     }
 
-    /* TARJETA CON TAMAÑO FIJO ESTRICTO */
     .card {
       background: var(--bg-white);
       border-radius: 20px;
       border: 1px solid #e2e8f0;
       overflow: hidden;
       cursor: pointer;
-      height: 400px;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      transition: box-shadow 0.3s ease;
+      transition: box-shadow 0.2s, transform 0.2s;
     }
 
     .card:hover {
-      box-shadow: 0 14px 30px rgba(0,0,0,0.12);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      transform: translateY(-4px);
     }
 
     .card-image-container {
       position: relative;
-      height: 210px;
-      background: #0f172a;
-      overflow: hidden;
-      transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-      flex-shrink: 0;
-    }
-
-    .card:hover .card-image-container {
-      height: 165px;
-    }
-
-    .card-image-container::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background-image: var(--bg-img);
-      background-size: cover;
-      background-position: center;
-      filter: blur(14px) brightness(0.75);
-      transform: scale(1.2);
-      z-index: 1;
+      height: 200px;
+      background: var(--bg-page);
     }
 
     .card-image {
-      position: relative;
-      z-index: 2;
       width: 100%;
       height: 100%;
-      object-fit: contain;
-      display: block;
-      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .card:hover .card-image {
-      transform: scale(1.06);
+      object-fit: cover;
     }
 
     .card-image-placeholder {
-      position: relative;
-      z-index: 2;
       width: 100%;
       height: 100%;
       display: flex;
@@ -462,7 +423,6 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       align-items: center;
       justify-content: center;
       transition: transform 0.2s;
-      z-index: 3;
     }
 
     .btn-favorite:hover {
@@ -483,16 +443,10 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       padding: 6px 14px;
       border-radius: 12px;
       font-size: 0.95rem;
-      z-index: 3;
     }
 
     .card-content {
-      padding: 16px 20px;
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      position: relative;
-      overflow: hidden;
+      padding: 20px;
     }
 
     .card-title {
@@ -505,6 +459,19 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       text-overflow: ellipsis;
     }
 
+    .badge-destacado-card {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #fbbf24;
+      color: #78350f;
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      z-index: 2;
+    }
+
     .card-category-badge {
       display: inline-block;
       font-size: 0.72rem;
@@ -513,8 +480,7 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       background: #e0f2fe;
       padding: 2px 6px;
       border-radius: 4px;
-      margin-bottom: 6px;
-      align-self: flex-start;
+      margin-bottom: 8px;
     }
 
     .card-meta {
@@ -522,43 +488,25 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       gap: 16px;
       font-size: 0.85rem;
       color: var(--text-muted);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
 
     .business-name {
       font-size: 0.9rem;
       color: var(--text-main);
       font-weight: 600;
-      margin: 0;
-    }
-
-    .card-hover-action {
-      position: absolute;
-      bottom: 14px;
-      left: 20px;
-      right: 20px;
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(10px);
-      transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
-    }
-
-    .card:hover .card-hover-action {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
+      margin: 0 0 16px 0;
     }
 
     .btn-outline {
       width: 100%;
-      background: var(--bg-white);
+      background: transparent;
       border: 2px solid #e2ebd8;
       color: #65a30d;
-      padding: 9px;
+      padding: 10px;
       border-radius: 999px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
       transition: all 0.2s;
     }
 
@@ -580,7 +528,7 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       margin-bottom: 12px;
     }
 
-    /* MODAL */
+    /* MODAL (igual al de Home, para consistencia hasta que exista /producto/:slug en Fase 3) */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -588,7 +536,7 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       backdrop-filter: blur(4px);
       -webkit-backdrop-filter: blur(4px);
       display: flex; align-items: center; justify-content: center;
-      z-index: 2000; padding: 20px; box-sizing: border-box;
+      z-index: 2000; padding: 20px;
       animation: overlayFadeIn 0.2s ease-out;
     }
 
@@ -618,12 +566,6 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       width: 38px; height: 38px; font-weight: bold; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       color: var(--primary); box-shadow: 0 2px 10px rgba(0,0,0,0.18);
-      transition: transform 0.15s, background 0.15s;
-    }
-
-    .btn-close-modal:hover {
-      background: #fff;
-      transform: scale(1.08);
     }
 
     .modal-gallery-main {
@@ -633,46 +575,13 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       background: var(--bg-page);
       border-radius: 24px 24px 0 0;
       overflow: hidden;
-      cursor: zoom-in;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: height 0.3s ease, background-color 0.3s ease;
-    }
-
-    .modal-gallery-main.is-fullscreen {
-      height: 500px;
-      background: #0b0f19;
-      cursor: zoom-out;
     }
 
     .gallery-main-img {
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
-      object-fit: contain;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center 30%;
       display: block;
-      transition: transform 0.3s ease;
-    }
-
-    .gallery-main-img.zoomed {
-      transform: scale(1.5);
-    }
-
-    .zoom-hint {
-      position: absolute;
-      bottom: 12px;
-      left: 16px;
-      background: rgba(0, 0, 0, 0.6);
-      color: #fff;
-      padding: 4px 10px;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      pointer-events: none;
-      backdrop-filter: blur(4px);
-      z-index: 2;
-      transition: opacity 0.2s;
     }
 
     .gallery-placeholder {
@@ -686,8 +595,6 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       background: rgba(0, 43, 102, 0.85); color: #fff;
       padding: 5px 14px; border-radius: 999px;
       font-size: 0.8rem; font-weight: 700;
-      backdrop-filter: blur(4px);
-      z-index: 2;
     }
 
     .modal-price-badge {
@@ -695,55 +602,29 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
       background: var(--accent); color: var(--primary);
       padding: 8px 20px; border-radius: 999px;
       font-size: 1.2rem; font-weight: 900;
-      box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-      white-space: nowrap;
-      z-index: 2;
     }
 
     .modal-thumbnails {
-      display: flex;
-      gap: 10px;
-      padding: 14px 28px 0;
-      justify-content: center;
+      display: flex; gap: 8px;
+      padding: 12px 24px 0;
+      overflow-x: auto;
     }
 
     .thumbnail-btn {
-      width: 70px;
-      height: 70px;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 2px solid #e2e8f0;
-      padding: 0;
-      cursor: pointer;
-      opacity: 0.6;
-      transition: all 0.2s ease;
-      background: #f8fafc;
+      flex-shrink: 0; width: 64px; height: 64px;
+      border-radius: 12px; overflow: hidden;
+      border: 2px solid transparent; padding: 0; cursor: pointer;
+      opacity: 0.55; background: none;
     }
 
-    .thumbnail-btn img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .thumbnail-btn.active {
-      border-color: var(--primary);
-      opacity: 1;
-      transform: scale(1.05);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-
-    .thumbnail-btn:hover {
-      opacity: 1;
-      border-color: var(--accent);
-    }
+    .thumbnail-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumbnail-btn.active { border-color: var(--primary); opacity: 1; }
 
     .modal-body { padding: 24px 28px 28px; }
 
     .modal-title {
       color: var(--primary); font-size: 1.5rem; font-weight: 800;
-      margin: 0 0 12px 0; line-height: 1.25;
+      margin: 0 0 12px 0;
     }
 
     .modal-meta-row {
@@ -766,10 +647,8 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
     .btn-outline-modal {
       flex: 1 1 100px; background: transparent; border: 2px solid #e2e8f0;
       color: var(--text-muted); padding: 12px; border-radius: 14px;
-      font-weight: 700; cursor: pointer; transition: all 0.2s;
+      font-weight: 700; cursor: pointer;
     }
-
-    .btn-outline-modal:hover { border-color: var(--primary); color: var(--primary); }
 
     .modal-actions .btn-primary,
     .modal-actions .btn-whatsapp { flex: 1 1 150px; margin-top: 0; }
@@ -777,20 +656,16 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
     .btn-primary {
       background: var(--primary); color: var(--accent); border: none;
       padding: 12px; border-radius: 14px; font-weight: 800; cursor: pointer;
-      margin-top: 24px; transition: opacity 0.2s;
       display: flex; align-items: center; justify-content: center; gap: 6px;
       text-decoration: none; text-align: center;
     }
-    .btn-primary:hover { opacity: 0.9; color: var(--accent); }
 
     .btn-whatsapp {
       background: #25d366; color: #fff; border: none;
-      padding: 12px; border-radius: 14px; font-weight: 800; cursor: pointer;
-      transition: opacity 0.2s;
+      padding: 12px; border-radius: 14px; font-weight: 800;
       display: flex; align-items: center; justify-content: center; gap: 6px;
       text-decoration: none; text-align: center;
     }
-    .btn-whatsapp:hover { opacity: 0.9; color: #fff; }
 
     @media (max-width: 768px) {
       .filters-row { grid-template-columns: 1fr 1fr; }
@@ -841,8 +716,6 @@ export class ResultadosComponent implements OnInit, OnDestroy {
   imagenSeleccionada: string | null = null;
   likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
 
-  isZoomed = false;
-
   private readonly PALETA_CATEGORIAS = [
     { bg: '#fef3c7', fg: '#92400e' },
     { bg: '#fbeaf0', fg: '#993556' },
@@ -862,7 +735,7 @@ export class ResultadosComponent implements OnInit, OnDestroy {
       this.publicacionSeleccionada.foto_1,
       this.publicacionSeleccionada.foto_2,
       this.publicacionSeleccionada.foto_3
-    ].filter((foto): foto is string => !!foto && foto.trim() !== '');
+    ].filter((foto): foto is string => !!foto);
   }
 
   async ngOnInit() {
@@ -871,10 +744,15 @@ export class ResultadosComponent implements OnInit, OnDestroy {
       await this.obtenerTranseunteId();
     }
 
+    // Catálogos y dataset completo se cargan una sola vez; el filtrado
+    // posterior (por query params) es 100% en memoria, sin volver a pegarle
+    // a Supabase en cada cambio de filtro.
     await this.cargarCatalogosGeograficos();
     this.categorias = await this.publicacionesService.cargarCategorias();
     await this.cargarPublicaciones();
 
+    // Reacciona a cambios en la URL (ej. venir de otra búsqueda desde Home,
+    // o que el usuario edite la URL directamente / use atrás-adelante).
     this.queryParamsSub = this.route.queryParamMap.subscribe(params => {
       this.searchQuery = params.get('q') || '';
       this.categoriaSeleccionadaId = params.get('categoria');
@@ -997,6 +875,10 @@ export class ResultadosComponent implements OnInit, OnDestroy {
     this.aplicarFiltrosLocalYActualizarUrl();
   }
 
+  // El estado "fuente de verdad" vive en la URL: cada cambio de filtro
+  // actualiza los query params (sin recargar la página ni romper el
+  // historial), y es la suscripción a queryParamMap la que realmente
+  // recalcula los resultados. Así una búsqueda siempre queda compartible.
   aplicarFiltrosLocalYActualizarUrl() {
     this.router.navigate([], {
       relativeTo: this.route,
@@ -1020,6 +902,10 @@ export class ResultadosComponent implements OnInit, OnDestroy {
     return this.publicacionesService.obtenerUbicacionTexto(pub);
   }
 
+  estaDestacada(pub: PublicacionConEmpresa): boolean {
+    return this.publicacionesService.estaDestacada(pub);
+  }
+
   obtenerLinkWhatsapp(pub: PublicacionConEmpresa): string | null {
     return this.publicacionesService.obtenerLinkWhatsapp(pub);
   }
@@ -1027,24 +913,17 @@ export class ResultadosComponent implements OnInit, OnDestroy {
   abrirModal(pub: PublicacionConEmpresa) {
     this.publicacionSeleccionada = pub;
     this.imagenSeleccionada = pub.foto_1 || pub.foto_2 || pub.foto_3 || null;
-    this.isZoomed = false;
     document.body.style.overflow = 'hidden';
   }
 
   seleccionarImagen(foto: string) {
     this.imagenSeleccionada = foto;
-    this.isZoomed = false;
   }
 
   cerrarModal() {
     this.publicacionSeleccionada = null;
     this.imagenSeleccionada = null;
-    this.isZoomed = false;
     document.body.style.overflow = '';
-  }
-
-  toggleZoomFullscreen() {
-    this.isZoomed = !this.isZoomed;
   }
 
   @HostListener('document:keydown.escape')
