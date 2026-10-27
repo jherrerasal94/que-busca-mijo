@@ -15,6 +15,7 @@ import {
   OrdenPublicaciones
 } from '../../core/services/publicaciones.service';
 import { User } from '@supabase/supabase-js';
+import { Title, Meta } from '@angular/platform-browser';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
 @Component({
@@ -684,6 +685,8 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
 })
 export class ResultadosComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
+  private titleService = inject(Title);
+  private metaService = inject(Meta);
   private router = inject(Router);
   private authService = inject(AuthService);
   private likeService = inject(LikeService);
@@ -845,6 +848,41 @@ export class ResultadosComponent implements OnInit, OnDestroy {
     });
 
     this.publicacionesOrdenadas = this.publicacionesService.ordenar(filtradas, this.orden, this.searchQuery);
+    this.actualizarMetaTags();
+  }
+
+  // Se recalcula en cada cambio de filtro (recalcularResultados corre en
+  // cada emisión de queryParamMap), así que cada búsqueda compartible
+  // también lleva un título/descripción propios, no genéricos.
+  private actualizarMetaTags() {
+    const partes: string[] = [];
+
+    if (this.searchQuery) partes.push(`"${this.searchQuery}"`);
+
+    if (this.categoriaSeleccionadaId) {
+      const cat = this.categorias.find(c => c.id === this.categoriaSeleccionadaId);
+      if (cat) partes.push(cat.nombre);
+    }
+
+    if (this.filtroCiudadId) {
+      const ciudad = this.ciudades.find(c => c.id === this.filtroCiudadId);
+      if (ciudad) partes.push(`en ${ciudad.nombre}`);
+    }
+
+    const titulo = partes.length > 0
+      ? `${partes.join(' ')} | Qué Busca Mijo`
+      : 'Explora negocios y servicios locales | Qué Busca Mijo';
+
+    const descripcion = (
+      partes.length > 0
+        ? `${this.publicacionesOrdenadas.length} resultados para ${partes.join(' ')} en Qué Busca Mijo.`
+        : `Explora ${this.publicacionesOrdenadas.length} productos y servicios de negocios locales en Qué Busca Mijo.`
+    ).slice(0, 160);
+
+    this.titleService.setTitle(titulo);
+    this.metaService.updateTag({ name: 'description', content: descripcion });
+    this.metaService.updateTag({ property: 'og:title', content: titulo });
+    this.metaService.updateTag({ property: 'og:description', content: descripcion });
   }
 
   onPaisChange() {

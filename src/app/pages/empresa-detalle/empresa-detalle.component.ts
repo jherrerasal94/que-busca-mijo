@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeResourceUrl, Title, Meta } from '@angular/platform-browser';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
 import { PublicacionesService, PublicacionConEmpresa, Categoria } from '../../core/services/publicaciones.service';
@@ -574,6 +574,8 @@ export class EmpresaDetalleComponent implements OnInit {
   private likeService = inject(LikeService);
   private sanitizer = inject(DomSanitizer);
   private publicacionesService = inject(PublicacionesService);
+  private titleService = inject(Title);
+  private metaService = inject(Meta);
 
   // ID de la plataforma "WhatsApp Business" en plataformas_sociales (mismo
   // valor usado en PublicacionesService, pero aquí redesSociales viene en
@@ -686,6 +688,7 @@ export class EmpresaDetalleComponent implements OnInit {
       // (this.empresa.id), sin importar si llegamos por id o por alias,
       // porque redes_sociales y publicaciones filtran por empresa_id (uuid).
       this.empresaId = this.empresa.id;
+      this.actualizarMetaTags(this.empresa);
       await this.cargarRedesSociales();
       await this.cargarPublicacionesDeEmpresa();
       await this.cargarReviews();
@@ -693,6 +696,26 @@ export class EmpresaDetalleComponent implements OnInit {
 
     this.currentUserChecked = true;
     this.cargando = false;
+  }
+
+  // Mismo propósito que en /producto/:slug (Fase 3): que compartir el
+  // perfil de un negocio por WhatsApp/redes muestre una tarjeta con su
+  // logo, nombre y descripción, en vez de un link pelado.
+  private actualizarMetaTags(empresa: Empresa) {
+    const titulo = `${empresa.nombre} | Qué Busca Mijo`;
+    const ciudadTxt = empresa.ciudad?.nombre ? ` en ${empresa.ciudad.nombre}` : '';
+    const descripcion = (
+      empresa.sobre_nosotros || `Encuentra productos y servicios de ${empresa.nombre}${ciudadTxt} en Qué Busca Mijo.`
+    ).slice(0, 160);
+
+    this.titleService.setTitle(titulo);
+    this.metaService.updateTag({ name: 'description', content: descripcion });
+    this.metaService.updateTag({ property: 'og:title', content: empresa.nombre });
+    this.metaService.updateTag({ property: 'og:description', content: descripcion });
+    this.metaService.updateTag({ property: 'og:type', content: 'website' });
+    if (empresa.logo) {
+      this.metaService.updateTag({ property: 'og:image', content: empresa.logo });
+    }
   }
 
   async cargarReviews() {
