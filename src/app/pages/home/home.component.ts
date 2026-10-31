@@ -1,9 +1,10 @@
-import { Component, OnInit, HostListener, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, HostListener, inject, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
+import { InstagramService } from '../../core/services/instagram.service';
 import {
   PublicacionesService,
   PublicacionConEmpresa,
@@ -25,6 +26,20 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
   template: `
     <div class="page-wrapper">
       <main class="main-content">
+
+        <!-- BANNER DE MOTIVACIÓN PARA EMPRESAS SIN PUBLICACIONES -->
+        @if (esEmpresaSinPublicaciones) {
+          <div class="company-welcome-banner">
+            <div class="banner-icon">🚀</div>
+            <div class="banner-text">
+              <h3>¡Bienvenido a bordo, {{ nombreEmpresaLogueada || 'Empresa' }}!</h3>
+              <p>Tu cuenta está activa, pero aún no tienes ofertas visibles para la comunidad. Comienza a mostrar lo que vendes.</p>
+            </div>
+            <div class="banner-action">
+              <a routerLink="/mis-publicaciones" class="btn-banner-cta">Crear mi primera publicación</a>
+            </div>
+          </div>
+        }
 
         <!-- HERO SECTION -->
         <section class="hero-section">
@@ -221,6 +236,51 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
           </section>
         }
 
+        <!-- SECCIÓN DE REDES SOCIALES / INSTAGRAM DINÁMICO -->
+        <section class="social-cta-section">
+          <div class="social-cta-header">
+            <div class="social-title-wrapper">
+              <div class="social-icon-wrapper">📸</div>
+              <div>
+                <span class="social-eyebrow">¡SÍGUENOS EN LAS REDES!</span>
+                <h3 class="social-title">Únete a nuestra comunidad en Instagram</h3>
+                <p class="social-subtitle">
+                  Descubre historias de negocios locales y recomendaciones exclusivas en 
+                  <a href="https://www.instagram.com/quebuscamijo/" target="_blank" rel="noopener noreferrer" class="social-handle">&#64;quebuscamijo</a>
+                </p>
+              </div>
+            </div>
+            <a 
+              href="https://www.instagram.com/quebuscamijo/" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              class="btn-instagram">
+              <span class="ig-icon">ig</span> Ver perfil completo
+            </a>
+          </div>
+
+          @if (cargandoInstagram) {
+            <div class="instagram-loading">Cargando publicaciones de Instagram...</div>
+          } @else if (instagramPosts.length === 0) {
+            <div class="instagram-empty">No hay publicaciones recientes disponibles en este momento.</div>
+          } @else {
+            <div class="instagram-grid">
+              @for (post of instagramPosts.slice(0, 4); track post.id) {
+                <a [href]="post.permalink" target="_blank" rel="noopener noreferrer" class="instagram-card">
+                  @if (post.media_type === 'IMAGE' || post.media_type === 'CAROUSEL_ALBUM') {
+                    <img [src]="post.media_url" [alt]="post.caption || 'Publicación de Instagram'" class="instagram-img" />
+                  } @else if (post.media_type === 'VIDEO') {
+                    <video [src]="post.media_url" class="instagram-img"></video>
+                  }
+                  <div class="instagram-overlay">
+                    <span class="ig-overlay-icon">❤️ 💬</span>
+                  </div>
+                </a>
+              }
+            </div>
+          }
+        </section>
+
         <!-- SECCIÓN DE BENEFICIOS / FEATURES -->
         <section class="features-section-wrapper">
           <h2 class="section-title features-title">¿Por qué nosotros?</h2>
@@ -297,7 +357,7 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
               }
             </div>
 
-            <!-- MINIATURAS (Muestra foto_1, foto_2 y foto_3 si están disponibles) -->
+            <!-- MINIATURAS -->
             @if (fotosPublicacionSeleccionada.length > 1) {
               <div class="modal-thumbnails">
                 @for (foto of fotosPublicacionSeleccionada; track foto; let idx = $index) {
@@ -389,6 +449,73 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       width: 100%;
       box-sizing: border-box;
       flex: 1;
+    }
+
+    /* BANNER DE BIENVENIDA PARA EMPRESAS SIN PUBLICACIONES */
+    .company-welcome-banner {
+      background: linear-gradient(135deg, #002b66 0%, #0a3d8f 100%);
+      border: 2px solid var(--accent);
+      border-radius: 20px;
+      padding: 24px 32px;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      box-shadow: 0 10px 30px rgba(0, 43, 102, 0.15);
+      flex-wrap: wrap;
+    }
+
+    .banner-icon {
+      font-size: 2.5rem;
+      background: rgba(100, 213, 0, 0.15);
+      width: 60px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .banner-text {
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .banner-text h3 {
+      color: #ffffff;
+      margin: 0 0 6px 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    .banner-text p {
+      color: #cbd5e1;
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .banner-action {
+      flex-shrink: 0;
+    }
+
+    .btn-banner-cta {
+      background: var(--accent);
+      color: var(--primary);
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.95rem;
+      display: inline-block;
+      transition: transform 0.2s, opacity 0.2s;
+      box-shadow: 0 4px 12px rgba(100, 213, 0, 0.3);
+    }
+
+    .btn-banner-cta:hover {
+      transform: translateY(-2px);
+      opacity: 0.95;
     }
 
     /* HERO SECTION */
@@ -600,7 +727,6 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       margin-bottom: 60px;
     }
 
-    /* TARJETA CON TAMAÑO FIJO ESTRICTO PARA EVITAR SALTOS EN LA PÁGINA */
     .card {
       background: var(--bg-white);
       border-radius: 20px;
@@ -901,6 +1027,171 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       white-space: nowrap;
     }
 
+    /* SECCIÓN REDES SOCIALES / INSTAGRAM DINÁMICO */
+    .social-cta-section {
+      background: radial-gradient(circle at top right, rgba(131, 58, 180, 0.05), transparent 40%),
+                  radial-gradient(circle at bottom left, rgba(252, 175, 69, 0.05), transparent 40%), #ffffff;
+      border: 2px solid #fed7aa;
+      border-radius: 24px;
+      padding: 32px;
+      margin: 40px 0 50px;
+      box-shadow: 0 12px 35px rgba(0, 43, 102, 0.04);
+    }
+
+    .social-cta-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .social-title-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .social-icon-wrapper {
+      width: 68px;
+      height: 68px;
+      flex-shrink: 0;
+      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      box-shadow: 0 8px 20px rgba(220, 39, 67, 0.25);
+    }
+
+    .social-eyebrow {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 850;
+      color: #9a3412;
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+    }
+
+    .social-title {
+      margin: 0 0 6px 0;
+      color: #002b66;
+      font-size: 1.35rem;
+      font-weight: 850;
+    }
+
+    .social-subtitle {
+      margin: 0;
+      color: #64748b;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .social-handle {
+      color: #ea580c;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .social-handle:hover {
+      text-decoration: underline;
+    }
+
+    .btn-instagram {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #fd1d1d, #f56040);
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px 28px;
+      border-radius: 999px;
+      font-weight: 850;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      box-shadow: 0 8px 20px rgba(193, 53, 132, 0.25);
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .btn-instagram:hover {
+      transform: translateY(-2px);
+      opacity: 0.95;
+    }
+
+    .ig-icon {
+      font-style: normal;
+      font-weight: 900;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+
+    .instagram-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .instagram-card {
+      position: relative;
+      aspect-ratio: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #0f172a;
+      display: block;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .instagram-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+    }
+
+    .instagram-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .instagram-card:hover .instagram-img {
+      transform: scale(1.05);
+    }
+
+    .instagram-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    .instagram-card:hover .instagram-overlay {
+      opacity: 1;
+    }
+
+    .ig-overlay-icon {
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 1.1rem;
+    }
+
+    .instagram-loading, .instagram-empty {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 24px;
+      font-size: 0.95rem;
+    }
+
     /* FEATURES BOTTOM */
     .features-section-wrapper {
       padding-top: 40px;
@@ -1182,6 +1473,21 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       .btn-cta-negocio { width: 100%; text-align: center; }
 
       .featured-section { margin-bottom: 32px; }
+      
+      .social-cta-section { padding: 24px 20px; }
+      .social-cta-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .instagram-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .btn-instagram {
+        width: 100%;
+        justify-content: center;
+      }
+
       .features-section-wrapper { padding-top: 28px; }
 
       .modal-gallery-main { height: 240px; }
@@ -1221,10 +1527,16 @@ export class HomeComponent implements OnInit {
   private authService = inject(AuthService);
   private likeService = inject(LikeService);
   private publicacionesService = inject(PublicacionesService);
+  private instagramService = inject(InstagramService);
   private router = inject(Router);
+  private platformId = inject(PLATFORM_ID);
 
   currentUser: User | null = null;
   transeunteId: string = '';
+
+  esEmpresaSinPublicaciones = false;
+  nombreEmpresaLogueada: string = '';
+
   publicaciones: PublicacionConEmpresa[] = [];
   publicacionesFiltradas: PublicacionConEmpresa[] = [];
 
@@ -1248,6 +1560,10 @@ export class HomeComponent implements OnInit {
   likesMap: { [key: string]: { total: number; hasLiked: boolean } } = {};
 
   isZoomed = false;
+
+  // Propiedades para Instagram
+  instagramPosts: any[] = [];
+  cargandoInstagram = true;
 
   private readonly PALETA_CATEGORIAS = [
     { bg: '#fef3c7', fg: '#92400e' },
@@ -1303,14 +1619,18 @@ export class HomeComponent implements OnInit {
 
     if (this.currentUser) {
       await this.obtenerTranseunteId();
+      await this.verificarSiEsEmpresaSinPublicaciones();
     }
 
     this.authService.onAuthStateChange(async (_event, session) => {
       this.currentUser = session ? session.user : null;
       if (this.currentUser) {
         await this.obtenerTranseunteId();
+        await this.verificarSiEsEmpresaSinPublicaciones();
       } else {
         this.transeunteId = '';
+        this.esEmpresaSinPublicaciones = false;
+        this.nombreEmpresaLogueada = '';
       }
     });
 
@@ -1318,7 +1638,31 @@ export class HomeComponent implements OnInit {
     await this.cargarCategorias();
     await this.cargarPublicaciones();
 
+    // Cargar posts dinámicos de Instagram
+    this.cargarInstagramFeed();
+
     this.detectarUbicacionUsuario();
+  }
+
+  cargarInstagramFeed() {
+    // Solo ejecutamos la llamada a Instagram si estamos en el navegador del cliente
+    if (!isPlatformBrowser(this.platformId)) {
+      this.cargandoInstagram = false;
+      return;
+    }
+
+    this.cargandoInstagram = true;
+    this.instagramService.getInstagramFeed().subscribe({
+      next: (res) => {
+        this.instagramPosts = res?.data || [];
+        this.cargandoInstagram = false;
+      },
+      error: (err) => {
+        console.warn('Aviso: No se pudo cargar el feed de Instagram (posible token expirado o restricción CORS):', err);
+        this.instagramPosts = [];
+        this.cargandoInstagram = false;
+      }
+    });
   }
 
   async obtenerTranseunteId() {
@@ -1331,6 +1675,33 @@ export class HomeComponent implements OnInit {
 
     if (data) {
       this.transeunteId = data.id;
+    }
+  }
+
+  async verificarSiEsEmpresaSinPublicaciones() {
+    if (!this.currentUser) return;
+    const supabase = this.authService.getSupabaseClient();
+
+    const { data: empresaData, error: empresaError } = await supabase
+      .from('empresas')
+      .select('id, nombre')
+      .eq('id', this.currentUser.id)
+      .maybeSingle();
+
+    if (empresaError || !empresaData) {
+      this.esEmpresaSinPublicaciones = false;
+      return;
+    }
+
+    this.nombreEmpresaLogueada = empresaData.nombre;
+
+    const { count, error: countError } = await supabase
+      .from('publicaciones')
+      .select('*', { count: 'exact', head: true })
+      .eq('empresa_id', empresaData.id);
+
+    if (!countError && count !== null) {
+      this.esEmpresaSinPublicaciones = (count === 0);
     }
   }
 
@@ -1361,8 +1732,8 @@ export class HomeComponent implements OnInit {
             const nombreCiudadDetectado = data.address.city || data.address.town || data.address.village;
 
             if (nombrePaisDetectado && this.paises.length > 0) {
-              const paisEncontrado = this.paises.find(p => 
-                p.nombre.toLowerCase().includes(nombrePaisDetectado.toLowerCase()) || 
+              const paisEncontrado = this.paises.find(p =>
+                p.nombre.toLowerCase().includes(nombrePaisDetectado.toLowerCase()) ||
                 nombrePaisDetectado.toLowerCase().includes(p.nombre.toLowerCase())
               );
 
@@ -1371,7 +1742,7 @@ export class HomeComponent implements OnInit {
                 this.onPaisChange();
 
                 if (nombreDeptoDetectado && this.departamentosFiltrados.length > 0) {
-                  const deptoEncontrado = this.departamentosFiltrados.find(d => 
+                  const deptoEncontrado = this.departamentosFiltrados.find(d =>
                     d.nombre.toLowerCase().includes(nombreDeptoDetectado.toLowerCase()) ||
                     nombreDeptoDetectado.toLowerCase().includes(d.nombre.toLowerCase())
                   );
@@ -1381,7 +1752,7 @@ export class HomeComponent implements OnInit {
                     this.onDepartamentoChange();
 
                     if (nombreCiudadDetectado && this.ciudadesFiltradas.length > 0) {
-                      const ciudadEncontrada = this.ciudadesFiltradas.find(c => 
+                      const ciudadEncontrada = this.ciudadesFiltradas.find(c =>
                         c.nombre.toLowerCase().includes(nombreCiudadDetectado.toLowerCase()) ||
                         nombreCiudadDetectado.toLowerCase().includes(c.nombre.toLowerCase())
                       );
@@ -1493,8 +1864,6 @@ export class HomeComponent implements OnInit {
       ciudadId: this.filtroCiudadId
     });
 
-    // 'recientes' porque el Home no tiene selector de orden; esto solo
-    // asegura que las destacadas (Fase 6) floten arriba del preview.
     this.publicacionesFiltradas = this.publicacionesService.ordenar(filtradas, 'recientes');
   }
 

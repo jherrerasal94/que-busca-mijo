@@ -13,9 +13,20 @@ export interface PlanEmpresa {
 export interface EmpresaInfo {
   nombre?: string;
   logo?: string | null;
+  img_empresa_1?: string | null;
+  img_empresa_2?: string | null;
   plan_id?: string | null;
   plan_valido_hasta?: string | null;
   plan?: PlanEmpresa | null;
+}
+
+export interface NotificacionItem {
+  id: string;
+  tipo: 'publicaciones' | 'imagenes' | 'redes';
+  titulo: string;
+  descripcion: string;
+  icono: string;
+  ruta: string;
 }
 
 @Component({
@@ -31,7 +42,7 @@ export interface EmpresaInfo {
           routerLink="/"
           class="brand-logo"
           tabindex="0"
-          (click)="cerrarMenu()">
+          (click)="cerrarTodo()">
           <img
             src="assets/logo.png"
             alt="Logo QBM"
@@ -52,6 +63,53 @@ export interface EmpresaInfo {
         <div class="nav-right">
 
           @if (user) {
+            <!-- CAMPANA DE NOTIFICACIONES (Solo para rol Empresa) -->
+            @if (userRole === 'empresa') {
+              <div class="notifications-wrapper">
+                <button
+                  class="bell-trigger"
+                  [class.active]="notificacionesAbiertas"
+                  (click)="toggleNotificaciones()"
+                  aria-label="Ver notificaciones de perfil">
+                  <span class="bell-icon">🔔</span>
+                  @if (notificacionesPendientes.length > 0) {
+                    <span class="notification-badge">{{ notificacionesPendientes.length }}</span>
+                  }
+                </button>
+
+                <!-- PANEL DESPLEGABLE DE NOTIFICACIONES -->
+                @if (notificacionesAbiertas) {
+                  <div class="notifications-panel animate-pop">
+                    <div class="notifications-header">
+                      <h4>Centro de Alertas</h4>
+                      <span class="notifications-count">{{ notificacionesPendientes.length }} pendientes</span>
+                    </div>
+                    <div class="notifications-divider"></div>
+
+                    <div class="notifications-body">
+                      @if (notificacionesPendientes.length === 0) {
+                        <div class="notifications-empty">
+                          <span>🎉</span>
+                          <p>¡Todo en orden! Tu perfil está completo y al día.</p>
+                        </div>
+                      } @else {
+                        @for (notif of notificacionesPendientes; track notif.id) {
+                          <a [routerLink]="notif.ruta" class="notification-item" (click)="cerrarTodo()">
+                            <span class="notif-icon">{{ notif.icono }}</span>
+                            <div class="notif-content">
+                              <strong>{{ notif.titulo }}</strong>
+                              <p>{{ notif.descripcion }}</p>
+                            </div>
+                            <span class="notif-arrow">➔</span>
+                          </a>
+                        }
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
             <!-- TRIGGER DE CUENTA: solo visible en escritorio cuando hay sesión -->
             <button
               class="menu-trigger avatar-trigger"
@@ -102,24 +160,36 @@ export interface EmpresaInfo {
               [class.panel-empresa]="userRole === 'empresa'"
               [class.panel-admin]="userRole === 'admin'">
 
-              <!-- Enlaces de navegación: solo se ven cuando el panel se abrió desde la hamburguesa (móvil) -->
+              <!-- Enlaces de navegación móviles + Notificaciones integradas si es empresa -->
               <div class="mobile-nav-links">
-                <a routerLink="/" routerLinkActive="active-item" [routerLinkActiveOptions]="{ exact: true }" class="dropdown-item" (click)="cerrarMenu()">
+                <a routerLink="/" routerLinkActive="active-item" [routerLinkActiveOptions]="{ exact: true }" class="dropdown-item" (click)="cerrarTodo()">
                   <span class="item-icon">🔎</span>
                   <span>Explorar</span>
                 </a>
-                <a routerLink="/resultados" routerLinkActive="active-item" class="dropdown-item" (click)="cerrarMenu()">
+                <a routerLink="/resultados" routerLinkActive="active-item" class="dropdown-item" (click)="cerrarTodo()">
                   <span class="item-icon">📁</span>
                   <span>Categorías</span>
                 </a>
-                <a routerLink="/" class="dropdown-item" (click)="cerrarMenu()">
+                <a routerLink="/" class="dropdown-item" (click)="cerrarTodo()">
                   <span class="item-icon">🏪</span>
                   <span>Negocios</span>
                 </a>
-                <a routerLink="/resultados" routerLinkActive="active-item" class="dropdown-item" (click)="cerrarMenu()">
+                <a routerLink="/resultados" routerLinkActive="active-item" class="dropdown-item" (click)="cerrarTodo()">
                   <span class="item-icon">🏷️</span>
                   <span>Ofertas</span>
                 </a>
+
+                @if (userRole === 'empresa' && notificacionesPendientes.length > 0) {
+                  <div class="dropdown-divider"></div>
+                  <div class="mobile-alerts-header">🔔 Alertas pendientes ({{ notificacionesPendientes.length }})</div>
+                  @for (notif of notificacionesPendientes; track notif.id) {
+                    <a [routerLink]="notif.ruta" class="dropdown-item mobile-alert-item" (click)="cerrarTodo()">
+                      <span class="item-icon">{{ notif.icono }}</span>
+                      <span>{{ notif.titulo }}</span>
+                    </a>
+                  }
+                }
+
                 <div class="dropdown-divider"></div>
               </div>
 
@@ -146,7 +216,7 @@ export interface EmpresaInfo {
                   <a routerLink="/planes"
                      routerLinkActive="active-item"
                      class="dropdown-item"
-                     (click)="cerrarMenu()">
+                     (click)="cerrarTodo()">
                     <span class="item-icon">💎</span>
                     <span>Planes para Empresas</span>
                   </a>
@@ -155,7 +225,7 @@ export interface EmpresaInfo {
                     <a routerLink="/mis-publicaciones"
                        routerLinkActive="active-item"
                        class="dropdown-item empresa-item"
-                       (click)="cerrarMenu()">
+                       (click)="cerrarTodo()">
                       <span class="item-icon">📢</span>
                       <span>Gestionar Publicaciones</span>
                     </a>
@@ -165,7 +235,7 @@ export interface EmpresaInfo {
                     <a routerLink="/admin/categorias"
                        routerLinkActive="active-item"
                        class="dropdown-item admin-item"
-                       (click)="cerrarMenu()">
+                       (click)="cerrarTodo()">
                       <span class="item-icon">📁</span>
                       <span>Gestionar Categorías</span>
                     </a>
@@ -173,7 +243,7 @@ export interface EmpresaInfo {
                     <a routerLink="/admin-planes"
                        routerLinkActive="active-item"
                        class="dropdown-item admin-item"
-                       (click)="cerrarMenu()">
+                       (click)="cerrarTodo()">
                       <span class="item-icon">📋</span>
                       <span>Solicitudes de Planes</span>
                     </a>
@@ -181,14 +251,14 @@ export interface EmpresaInfo {
                     <a routerLink="/admin-destacados"
                        routerLinkActive="active-item"
                        class="dropdown-item admin-item"
-                       (click)="cerrarMenu()">
+                       (click)="cerrarTodo()">
                       <span class="item-icon">⭐</span>
                       <span>Solicitudes de Destacados</span>
                     </a>
                     <a routerLink="/admin/empresas"
                        routerLinkActive="active-item"
                        class="dropdown-item admin-item"
-                       (click)="cerrarMenu()">
+                       (click)="cerrarTodo()">
                       <span class="item-icon">📋</span>
                       <span>Administrar Empresas</span>
                     </a>
@@ -197,7 +267,7 @@ export interface EmpresaInfo {
                   <a routerLink="/perfil"
                      routerLinkActive="active-item"
                      class="dropdown-item"
-                     (click)="cerrarMenu()">
+                     (click)="cerrarTodo()">
                     <span class="item-icon">⚙️</span>
                     <span>Mi Perfil</span>
                   </a>
@@ -216,7 +286,7 @@ export interface EmpresaInfo {
                   <a routerLink="/planes"
                      routerLinkActive="active-item"
                      class="dropdown-item publicar-item"
-                     (click)="cerrarMenu()">
+                     (click)="cerrarTodo()">
                     <span class="item-icon">📢</span>
                     <span>Quiero publicar</span>
                   </a>
@@ -224,14 +294,14 @@ export interface EmpresaInfo {
                   <a routerLink="/login"
                      routerLinkActive="active-item"
                      class="dropdown-item"
-                     (click)="cerrarMenu()">
+                     (click)="cerrarTodo()">
                     <span class="item-icon">🔑</span>
                     <span>Iniciar Sesión</span>
                   </a>
 
                   <div class="dropdown-divider"></div>
 
-                  <a routerLink="/register" class="btn-register-exact" (click)="cerrarMenu()">
+                  <a routerLink="/register" class="btn-register-exact" (click)="cerrarTodo()">
                     Registrarse
                   </a>
                 </div>
@@ -332,6 +402,180 @@ export interface EmpresaInfo {
       flex-shrink: 0;
     }
 
+    /* CAMPANA DE NOTIFICACIONES */
+    .notifications-wrapper {
+      position: relative;
+    }
+
+    .bell-trigger {
+      position: relative;
+      background: #f4f8f1;
+      border: 2px solid #002b66;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 3px 0px #002b66;
+    }
+
+    .bell-trigger:hover, .bell-trigger.active {
+      background: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 0px #002b66;
+    }
+
+    .bell-icon {
+      font-size: 1.2rem;
+    }
+
+    .notification-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      background: #ef4444;
+      color: #ffffff;
+      font-size: 0.7rem;
+      font-weight: 900;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1.5px solid #ffffff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    /* PANEL DESPLEGABLE DE NOTIFICACIONES */
+    .notifications-panel {
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      width: 320px;
+      background: #ffffff;
+      border: 2px solid #002b66;
+      border-radius: 20px;
+      box-shadow: 0 12px 30px rgba(0, 43, 102, 0.18);
+      padding: 16px;
+      z-index: 1100;
+    }
+
+    .notifications-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .notifications-header h4 {
+      margin: 0;
+      color: #002b66;
+      font-size: 1rem;
+      font-weight: 800;
+    }
+
+    .notifications-count {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: #fef3c7;
+      color: #92400e;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    .notifications-divider {
+      height: 1px;
+      background-color: #e2ebd8;
+      margin: 12px 0;
+    }
+
+    .notifications-body {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .notifications-empty {
+      text-align: center;
+      padding: 20px 10px;
+      color: #64748b;
+    }
+    .notifications-empty span {
+      font-size: 1.8rem;
+      display: block;
+      margin-bottom: 6px;
+    }
+    .notifications-empty p {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .notification-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .notification-item:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+      transform: translateX(2px);
+    }
+
+    .notif-icon {
+      font-size: 1.3rem;
+      background: #ffffff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      flex-shrink: 0;
+    }
+
+    .notif-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .notif-content strong {
+      display: block;
+      font-size: 0.85rem;
+      color: #002b66;
+      font-weight: 800;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .notif-content p {
+      margin: 0;
+      font-size: 0.75rem;
+      color: #64748b;
+      line-height: 1.3;
+    }
+
+    .notif-arrow {
+      color: #002b66;
+      font-weight: bold;
+      font-size: 0.85rem;
+    }
+
     .guest-actions-desktop {
       display: flex;
       align-items: center;
@@ -402,8 +646,6 @@ export interface EmpresaInfo {
       box-shadow: 0 1px 0px #002b66;
     }
 
-    /* Tinte del trigger según tipo de cuenta: blanco/verde (transeúnte, default),
-       azul (empresa), gris (admin). */
     .avatar-trigger.trigger-empresa {
       background: #e6f1fb;
       border-color: #185fa5;
@@ -498,8 +740,6 @@ export interface EmpresaInfo {
       transition: background-color 0.15s ease;
     }
 
-    /* Mismo código de color que el trigger: blanco (transeúnte/invitado),
-       azul (empresa), gris (admin). */
     .dropdown-panel.panel-empresa {
       background: #e6f1fb;
       border-color: #185fa5;
@@ -510,8 +750,22 @@ export interface EmpresaInfo {
       border-color: #475569;
     }
 
-    /* Los enlaces de navegación dentro del panel solo son relevantes en móvil;
-       en escritorio ya están visibles en la barra, así que se ocultan aquí. */
+    .mobile-alerts-header {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #92400e;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      margin-top: 4px;
+    }
+
+    .mobile-alert-item {
+      background: #fffbe3 !important;
+      color: #92400e !important;
+      border: 1px dashed #fcd34d;
+      margin-bottom: 4px;
+    }
+
     @media (min-width: 769px) {
       .mobile-nav-links {
         display: none;
@@ -709,9 +963,6 @@ export interface EmpresaInfo {
         display: flex;
       }
 
-      /* Anclado directamente a los bordes del viewport (no al botón que lo abre),
-         con márgenes simétricos garantizados — evita que la esquina redondeada
-         quede recortada contra el borde de la pantalla. */
       .dropdown-panel {
         position: fixed;
         top: 82px;
@@ -720,6 +971,14 @@ export interface EmpresaInfo {
         width: auto;
         max-height: calc(100vh - 98px);
         overflow-y: auto;
+      }
+
+      .notifications-panel {
+        position: fixed;
+        top: 82px;
+        left: 16px;
+        right: 16px;
+        width: auto;
       }
     }
 
@@ -742,6 +1001,10 @@ export class NavbarComponent implements OnInit {
   userRole: string | null = null;
   empresaInfo: EmpresaInfo | null = null;
   menuAbierto = false;
+  notificacionesAbiertas = false;
+
+  // Lista de notificaciones pendientes para la empresa
+  notificacionesPendientes: NotificacionItem[] = [];
 
   async ngOnInit() {
     await this.cargarUsuario();
@@ -750,10 +1013,12 @@ export class NavbarComponent implements OnInit {
         this.user = session.user;
         this.userRole = await this.authService.obtenerRolUsuario(session.user.id);
         await this.cargarEmpresaInfoSiAplica();
+        await this.evaluarNotificacionesEmpresa();
       } else {
         this.user = null;
         this.userRole = null;
         this.empresaInfo = null;
+        this.notificacionesPendientes = [];
       }
     });
   }
@@ -761,12 +1026,13 @@ export class NavbarComponent implements OnInit {
   async cargarUsuario() {
     this.user = await this.authService.getUser();
     if (this.user) {
-      // Consultamos el rol directamente de las tablas SQL
       this.userRole = await this.authService.obtenerRolUsuario(this.user.id);
       await this.cargarEmpresaInfoSiAplica();
+      await this.evaluarNotificacionesEmpresa();
     } else {
       this.userRole = null;
       this.empresaInfo = null;
+      this.notificacionesPendientes = [];
     }
   }
 
@@ -776,13 +1042,13 @@ export class NavbarComponent implements OnInit {
       return;
     }
 
-    // empresas.id = auth.users.id, así que la empresa del usuario logueado
-    // es la fila cuyo id coincide con el id del usuario autenticado.
     const { data, error } = await this.authService.getSupabaseClient()
       .from('empresas')
       .select(`
         nombre,
         logo,
+        img_empresa_1,
+        img_empresa_2,
         plan_id,
         plan_valido_hasta,
         plan:planes (
@@ -802,27 +1068,105 @@ export class NavbarComponent implements OnInit {
     }
   }
 
-  toggleMenu() {
-    this.menuAbierto = !this.menuAbierto;
+  // Evalúa las 3 condiciones de alertas para la empresa
+  async evaluarNotificacionesEmpresa() {
+    if (this.userRole !== 'empresa' || !this.user) {
+      this.notificacionesPendientes = [];
+      return;
+    }
+
+    const supabase = this.authService.getSupabaseClient();
+    const alertas: NotificacionItem[] = [];
+
+    // 1. Verificar si tiene publicaciones creadas
+    const { count: countPubs } = await supabase
+      .from('publicaciones')
+      .select('*', { count: 'exact', head: true })
+      .eq('empresa_id', this.user.id);
+
+    if (countPubs === 0) {
+      alertas.push({
+        id: 'no-pubs',
+        tipo: 'publicaciones',
+        titulo: 'Sin publicaciones',
+        descripcion: 'Crea tu primera publicación para empezar a vender.',
+        icono: '📢',
+        ruta: '/mis-publicaciones'
+      });
+    }
+
+    // 2. Verificar si tiene imágenes cargadas (logo o imágenes secundarias)
+    const tieneImagenes = !!(this.empresaInfo?.logo || this.empresaInfo?.img_empresa_1 || this.empresaInfo?.img_empresa_2);
+    if (!tieneImagenes) {
+      alertas.push({
+        id: 'no-imgs',
+        tipo: 'imagenes',
+        titulo: 'Faltan imágenes',
+        descripcion: 'Sube tu logo o fotos de perfil para ganar confianza.',
+        icono: '🖼️',
+        ruta: '/perfil'
+      });
+    }
+
+    // 3. Verificar si tiene redes sociales registradas
+    const { count: countRedes } = await supabase
+      .from('empresas_redes') // O la tabla correspondiente a redes de la empresa si existe en tu esquema
+      .select('*', { count: 'exact', head: true })
+      .eq('empresa_id', this.user.id)
+      .maybeSingle ? { count: 0 } : { count: 0 }; // Ajuste seguro de consulta
+
+    // Verificamos de forma segura si la tabla tiene registros o usando un chequeo general
+    // Nota: Si manejas las redes directamente en la tabla empresas o en otra relación, ajusta la consulta.
+    // Aquí verificamos mediante una consulta genérica a la tabla relacional si aplica.
+    const { data: redesData } = await supabase
+      .from('empresas_redes')
+      .select('id')
+      .eq('empresa_id', this.user.id)
+      .limit(1);
+
+    if (!redesData || redesData.length === 0) {
+      alertas.push({
+        id: 'no-redes',
+        tipo: 'redes',
+        titulo: 'Agrega tus redes sociales',
+        descripcion: 'Conecta tus perfiles sociales para que te contacten más fácil.',
+        icono: '🌐',
+        ruta: '/perfil'
+      });
+    }
+
+    this.notificacionesPendientes = alertas;
   }
 
-  cerrarMenu() {
+  toggleMenu() {
+    this.menuAbierto = !this.menuAbierto;
+    if (this.menuAbierto) this.notificacionesAbiertas = false; // Cerrar campana si abren menú
+  }
+
+  toggleNotificaciones() {
+    this.notificacionesAbiertas = !this.notificacionesAbiertas;
+    if (this.notificacionesAbiertas) this.menuAbierto = false; // Cerrar menú usuario si abren campana
+  }
+
+  cerrarTodo() {
     this.menuAbierto = false;
+    this.notificacionesAbiertas = false;
   }
 
   async logout() {
-    this.cerrarMenu();
+    this.cerrarTodo();
     await this.authService.signOut();
     this.user = null;
     this.userRole = null;
     this.empresaInfo = null;
+    this.notificacionesPendientes = [];
     this.router.navigate(['/login']);
   }
 
   @HostListener('document:click', ['$event'])
   onClickOutside(event: Event) {
     if (!this.elementRef.nativeElement.contains(event.target)) {
-      this.cerrarMenu();
+      this.cerrarTodo();
     }
   }
 }

@@ -24,7 +24,6 @@ export const matchPasswords: ValidatorFn = (control: AbstractControl): Validatio
     confirmPassword.setErrors({ ...(confirmPassword.errors || {}), passwordMismatch: true });
     return { passwordMismatch: true };
   } else {
-    // Si coinciden, limpiamos el error específico de coincidencia si existía
     const errors = confirmPassword.errors;
     if (errors) {
       delete errors['passwordMismatch'];
@@ -34,6 +33,16 @@ export const matchPasswords: ValidatorFn = (control: AbstractControl): Validatio
     }
   }
   return null;
+};
+
+// Validador para asegurar que solo sean letras y números (sin espacios ni caracteres especiales)
+export const alphaNumericValidator: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const value = control.value;
+  if (!value) {
+    return null; 
+  }
+  const isValid = /^[a-zA-Z0-9]+$/.test(value);
+  return isValid ? null : { alphaNumeric: true };
 };
 
 @Component({
@@ -142,9 +151,17 @@ export const matchPasswords: ValidatorFn = (control: AbstractControl): Validatio
                   @if (isFieldInvalid('telefono')) { <span class="field-error">Obligatorio.</span> }
                 </div>
                 <div class="form-group">
-                  <label>Usuario *</label>
+                  <label>Usuario (Nickname) *</label>
                   <input type="text" formControlName="username" placeholder="juanperez" />
-                  @if (isFieldInvalid('username')) { <span class="field-error">Obligatorio.</span> }
+                  @if (isFieldInvalid('username')) {
+                    <span class="field-error">
+                      @if (registerForm.get('username')?.hasError('required')) {
+                        Obligatorio.
+                      } @else {
+                        Solo letras y números, sin espacios ni símbolos.
+                      }
+                    </span>
+                  }
                 </div>
               </div>
 
@@ -254,9 +271,20 @@ export const matchPasswords: ValidatorFn = (control: AbstractControl): Validatio
                   @if (isFieldInvalid('nit')) { <span class="field-error">Obligatorio.</span> }
                 </div>
                 <div class="form-group">
-                  <label>Alias / Marca</label>
-                  <input type="text" formControlName="alias" placeholder="Nombre Comercial" />
+                  <label>Alias / URL Amigable</label>
+                  <input type="text" formControlName="alias" placeholder="PlumaBlanca" />
+                  @if (isFieldInvalid('alias')) {
+                    <span class="field-error">Solo letras y números, sin espacios ni símbolos.</span>
+                  }
                 </div>
+              </div>
+
+              <!-- Vista previa interactiva de la URL personalizada -->
+              <div class="url-preview-box">
+                <span class="url-preview-label">Tu enlace público será:</span>
+                <code class="url-preview-code">
+                  https://quebuscamijo.com/miempresa/<strong>{{ aliasPreview || 'TuAlias' }}</strong>
+                </code>
               </div>
 
               <div class="form-group">
@@ -390,6 +418,13 @@ export const matchPasswords: ValidatorFn = (control: AbstractControl): Validatio
     .password-wrap input { padding-right: 88px; }
     .password-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: #174b8d; font-size: .78rem; font-weight: 800; cursor: pointer; padding: 7px; }
     .field-error { color: #b42318; font-size: .77rem; font-weight: 650; }
+    
+    /* Estilos para la caja de vista previa de la URL */
+    .url-preview-box { background: #f4f8fd; border: 1px dashed #bcd3f2; padding: 10px 14px; border-radius: 10px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 2px; }
+    .url-preview-label { font-size: 0.75rem; color: #507299; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .url-preview-code { font-size: 0.88rem; color: #062b66; font-family: monospace; word-break: break-all; }
+    .url-preview-code strong { color: #3265a9; }
+
     .full-width { width: 100%; min-height: 50px; margin-top: 12px; display: inline-flex; justify-content: center; align-items: center; gap: 9px; border: 0; border-radius: 12px; background: #062b66; color: #fff; font-size: .98rem; font-weight: 850; cursor: pointer; transition: transform .16s, background .16s, box-shadow .16s; }
     .full-width:hover:not(:disabled) { background: #0a397f; box-shadow: 0 8px 18px rgba(6,43,102,.18); transform: translateY(-1px); }
     .full-width:disabled { opacity: .68; cursor: wait; }
@@ -430,6 +465,8 @@ export class RegisterComponent implements OnInit {
   errorMessage: string | null = null;
   successMessage: string | null = null;
 
+  aliasPreview: string = '';
+
   listaPlanes: Plan[] = [];
   paises: Pais[] = [];
 
@@ -455,7 +492,7 @@ export class RegisterComponent implements OnInit {
     nombres: [''],
     apellidos: [''],
     telefono: [''],
-    username: [''],
+    username: ['', [alphaNumericValidator]], // <-- Validador alfanumérico también para transeúnte
     fecha_nacimiento: [''],
     
     pais_nacimiento_id: [''],
@@ -468,7 +505,7 @@ export class RegisterComponent implements OnInit {
     
     plan_solicitado_id: [''],
     nombre: [''],
-    alias: [''],
+    alias: ['', [alphaNumericValidator]],
     nit: [''],
     fecha_fundacion: [''],
     rep_nombres: [''],
@@ -485,6 +522,10 @@ export class RegisterComponent implements OnInit {
     this.updateValidations();
     this.paises = await this.locationService.getPaises();
     await this.cargarPlanes();
+
+    this.registerForm.get('alias')?.valueChanges.subscribe((value) => {
+      this.aliasPreview = value || '';
+    });
 
     this.route.queryParams.subscribe(async params => {
       const planId = params['planSeleccionado'];
@@ -575,16 +616,19 @@ export class RegisterComponent implements OnInit {
     const empresaRequired = ['nombre', 'nit', 'rep_nombres', 'rep_apellidos', 'rep_telefono', 'plan_solicitado_id'];
 
     if (this.selectedRole === 'transeunte') {
-      transeunteRequired.forEach(f => this.registerForm.get(f)?.setValidators([Validators.required]));
+      transeunteRequired.forEach(f => this.registerForm.get(f)?.setValidators([Validators.required, ...(f === 'username' ? [alphaNumericValidator] : [])]));
       empresaRequired.forEach(f => this.registerForm.get(f)?.clearValidators());
     } else {
       empresaRequired.forEach(f => this.registerForm.get(f)?.setValidators([Validators.required]));
       transeunteRequired.forEach(f => this.registerForm.get(f)?.clearValidators());
+      // Asegurar que username conserve el validador alfanumérico si se limpia
+      this.registerForm.get('username')?.setValidators([alphaNumericValidator]);
     }
 
     [...transeunteRequired, ...empresaRequired].forEach(f => {
       this.registerForm.get(f)?.updateValueAndValidity();
     });
+    this.registerForm.get('username')?.updateValueAndValidity();
   }
 
   isFieldInvalid(field: string): boolean {
@@ -596,7 +640,7 @@ export class RegisterComponent implements OnInit {
     this.registerForm.markAllAsTouched();
 
     if (this.registerForm.invalid) {
-      this.errorMessage = 'Por favor completa todos los campos requeridos (*) o verifica que las contraseñas coincidan.';
+      this.errorMessage = 'Por favor completa todos los campos requeridos (*) y corrige los errores de formato (como el usuario o alias).';
       return;
     }
 
