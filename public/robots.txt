@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+Disallow: /perfil
+Disallow: /mis-publicaciones
+Disallow: /admin-planes
+Disallow: /admin-destacados
+Disallow: /admin/categorias
+Disallow: /adquirir-plan
+
+Sitemap: https://quebuscamijo.com/sitemap.xml

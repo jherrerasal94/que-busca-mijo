@@ -1,5 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, Renderer2, inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl, Title, Meta } from '@angular/platform-browser';
@@ -568,7 +568,7 @@ export interface ReviewEmpresa {
     }
   `]
 })
-export class EmpresaDetalleComponent implements OnInit {
+export class EmpresaDetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private authService = inject(AuthService);
   private likeService = inject(LikeService);
@@ -576,6 +576,8 @@ export class EmpresaDetalleComponent implements OnInit {
   private publicacionesService = inject(PublicacionesService);
   private titleService = inject(Title);
   private metaService = inject(Meta);
+  private renderer2 = inject(Renderer2);
+  private document = inject(DOCUMENT);
 
   // ID de la plataforma "WhatsApp Business" en plataformas_sociales (mismo
   // valor usado en PublicacionesService, pero aquí redesSociales viene en
@@ -689,6 +691,7 @@ export class EmpresaDetalleComponent implements OnInit {
       // porque redes_sociales y publicaciones filtran por empresa_id (uuid).
       this.empresaId = this.empresa.id;
       this.actualizarMetaTags(this.empresa);
+      this.actualizarJsonLd(this.empresa);
       await this.cargarRedesSociales();
       await this.cargarPublicacionesDeEmpresa();
       await this.cargarReviews();
@@ -716,6 +719,56 @@ export class EmpresaDetalleComponent implements OnInit {
     if (empresa.logo) {
       this.metaService.updateTag({ property: 'og:image', content: empresa.logo });
     }
+  }
+
+  // Datos estructurados (schema.org/LocalBusiness). Se llama dos veces:
+  // apenas carga la empresa (sin rating todavía), y de nuevo al final de
+  // cargarReviews() para incluir aggregateRating una vez están disponibles.
+  private actualizarJsonLd(empresa: Empresa) {
+    const jsonLd: any = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: empresa.nombre
+    };
+
+    if (empresa.logo) jsonLd.image = empresa.logo;
+    if (empresa.sobre_nosotros) jsonLd.description = empresa.sobre_nosotros;
+
+    if (empresa.direccion || empresa.ciudad?.nombre) {
+      jsonLd.address = { '@type': 'PostalAddress', addressCountry: 'CO' };
+      if (empresa.direccion) jsonLd.address.streetAddress = empresa.direccion;
+      if (empresa.ciudad?.nombre) jsonLd.address.addressLocality = empresa.ciudad.nombre;
+    }
+
+    if (this.reviews.length > 0) {
+      jsonLd.aggregateRating = {
+        '@type': 'AggregateRating',
+        ratingValue: this.promedioRating.toFixed(1),
+        reviewCount: this.reviews.length
+      };
+    }
+
+    this.insertarJsonLd(jsonLd);
+  }
+
+  private insertarJsonLd(datos: object) {
+    this.eliminarJsonLd();
+    const script = this.renderer2.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'ld-json-empresa';
+    script.text = JSON.stringify(datos);
+    this.renderer2.appendChild(this.document.head, script);
+  }
+
+  private eliminarJsonLd() {
+    const existente = this.document.getElementById('ld-json-empresa');
+    if (existente) {
+      this.renderer2.removeChild(this.document.head, existente);
+    }
+  }
+
+  ngOnDestroy() {
+    this.eliminarJsonLd();
   }
 
   async cargarReviews() {
@@ -747,6 +800,12 @@ export class EmpresaDetalleComponent implements OnInit {
 
     if (this.transeunteId) {
       this.miReview = this.reviews.find(r => r.transeunte_id === this.transeunteId) || null;
+    }
+
+    // Las reviews llegan después del primer actualizarJsonLd (que corre
+    // apenas carga la empresa) -- se regenera para incluir aggregateRating.
+    if (this.empresa) {
+      this.actualizarJsonLd(this.empresa);
     }
   }
 

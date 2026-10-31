@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -18,7 +18,9 @@ export class OlvidarContrasenaComponent {
   successMessage = '';
   errorMessage = '';
 
-  constructor(private authService: AuthService) {}
+  //constructor(private authService: AuthService) {}
+  private authService = inject(AuthService);
+//private router = inject(Router);
 
   get emailInvalid(): boolean {
     return this.submitted &&

@@ -1,5 +1,5 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnInit, OnDestroy, Renderer2, inject } from '@angular/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
 import { PublicacionesService, PublicacionConEmpresa } from '../../core/services/publicaciones.service';
@@ -376,11 +376,13 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
     }
   `]
 })
-export class ProductoDetalleComponent implements OnInit {
+export class ProductoDetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private publicacionesService = inject(PublicacionesService);
   private titleService = inject(Title);
   private metaService = inject(Meta);
+  private renderer2 = inject(Renderer2);
+  private document = inject(DOCUMENT);
 
   publicacion: PublicacionConEmpresa | null = null;
   categorias: { id: string; nombre: string; icono?: string }[] = [];
@@ -408,6 +410,7 @@ export class ProductoDetalleComponent implements OnInit {
       this.imagenSeleccionada = this.fotosDisponibles[0] || null;
       this.linkWhatsapp = this.publicacionesService.obtenerLinkWhatsapp(this.publicacion);
       this.actualizarMetaTags(this.publicacion);
+      this.actualizarJsonLd(this.publicacion);
     }
 
     this.cargando = false;
@@ -434,6 +437,52 @@ export class ProductoDetalleComponent implements OnInit {
       this.metaService.updateTag({ property: 'product:price:amount', content: String(pub.precio) });
       this.metaService.updateTag({ property: 'product:price:currency', content: 'COP' });
     }
+  }
+
+  // Datos estructurados (schema.org/Product). Esto es lo que le permite a
+  // Google mostrar precio, disponibilidad, etc. directamente en el
+  // resultado de búsqueda ("rich snippet"), no solo el título/descripción.
+  private actualizarJsonLd(pub: PublicacionConEmpresa) {
+    const jsonLd: any = {
+      '@context': 'https://schema.org',
+      '@type': 'Product',
+      name: pub.servicio_producto
+    };
+
+    if (pub.descripcion) jsonLd.description = pub.descripcion;
+    if (this.fotosDisponibles.length > 0) jsonLd.image = this.fotosDisponibles;
+    if (pub.empresa?.nombre) jsonLd.brand = { '@type': 'Brand', name: pub.empresa.nombre };
+
+    if (pub.precio !== null && pub.precio !== undefined) {
+      jsonLd.offers = {
+        '@type': 'Offer',
+        price: pub.precio,
+        priceCurrency: 'COP',
+        availability: 'https://schema.org/InStock'
+      };
+    }
+
+    this.insertarJsonLd(jsonLd);
+  }
+
+  private insertarJsonLd(datos: object) {
+    this.eliminarJsonLd();
+    const script = this.renderer2.createElement('script');
+    script.type = 'application/ld+json';
+    script.id = 'ld-json-producto';
+    script.text = JSON.stringify(datos);
+    this.renderer2.appendChild(this.document.head, script);
+  }
+
+  private eliminarJsonLd() {
+    const existente = this.document.getElementById('ld-json-producto');
+    if (existente) {
+      this.renderer2.removeChild(this.document.head, existente);
+    }
+  }
+
+  ngOnDestroy() {
+    this.eliminarJsonLd();
   }
 
   obtenerNombreCategoria(categoriaId: string): string {

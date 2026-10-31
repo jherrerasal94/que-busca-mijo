@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
@@ -275,7 +275,9 @@ export class LoginComponent {
   showPassword = false;
   submitted = false;
 
-  constructor(private authService: AuthService, private router: Router) {}
+  //constructor(private authService: AuthService, private router: Router) {}
+  private authService = inject(AuthService);
+private router = inject(Router);
 
   get emailInvalid(): boolean {
     return this.submitted &&
