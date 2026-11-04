@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, HostListener, inject } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, combineLatest } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
 import {
@@ -756,13 +756,46 @@ export class ResultadosComponent implements OnInit, OnDestroy {
 
     // Reacciona a cambios en la URL (ej. venir de otra búsqueda desde Home,
     // o que el usuario edite la URL directamente / use atrás-adelante).
-    this.queryParamsSub = this.route.queryParamMap.subscribe(params => {
-      this.searchQuery = params.get('q') || '';
-      this.categoriaSeleccionadaId = params.get('categoria');
-      this.filtroPaisId = params.get('pais') || '';
-      this.filtroDepartamentoId = params.get('departamento') || '';
-      this.filtroCiudadId = params.get('ciudad') || '';
-      this.orden = (params.get('orden') as OrdenPublicaciones) || 'relevancia';
+    // Se combina con paramMap porque esta misma página también se sirve
+    // desde las rutas amigables /:ciudadSlug y /:ciudadSlug/:categoriaSlug
+    // (Fase 7) -- sin combineLatest, navegar entre dos de esas rutas con
+    // el mismo componente reutilizado no dispararía un nuevo snapshot.
+    this.queryParamsSub = combineLatest([
+      this.route.paramMap,
+      this.route.queryParamMap
+    ]).subscribe(([params, queryParams]) => {
+      this.searchQuery = queryParams.get('q') || '';
+      this.categoriaSeleccionadaId = queryParams.get('categoria');
+      this.filtroPaisId = queryParams.get('pais') || '';
+      this.filtroDepartamentoId = queryParams.get('departamento') || '';
+      this.filtroCiudadId = queryParams.get('ciudad') || '';
+      this.orden = (queryParams.get('orden') as OrdenPublicaciones) || 'relevancia';
+
+      // Los segmentos de ruta amigables tienen prioridad sobre los query
+      // params equivalentes, y autocompletan la cascada geográfica
+      // (departamento/país) para que los selects del filtro también
+      // queden coherentes con la ciudad de la URL.
+      const ciudadSlug = params.get('ciudadSlug');
+      const categoriaSlug = params.get('categoriaSlug');
+
+      if (ciudadSlug) {
+        const ciudad = this.publicacionesService.buscarCiudadPorSlug(this.ciudades, ciudadSlug);
+        if (ciudad) {
+          this.filtroCiudadId = ciudad.id;
+          const depto = this.departamentos.find(d => d.id === ciudad.departamento_id);
+          if (depto) {
+            this.filtroDepartamentoId = depto.id;
+            this.filtroPaisId = depto.pais_id;
+          }
+        }
+      }
+
+      if (categoriaSlug) {
+        const categoria = this.publicacionesService.buscarCategoriaPorSlug(this.categorias, categoriaSlug);
+        if (categoria) {
+          this.categoriaSeleccionadaId = categoria.id;
+        }
+      }
 
       this.sincronizarCascadasGeograficas();
       this.recalcularResultados();

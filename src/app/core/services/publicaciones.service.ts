@@ -81,6 +81,20 @@ export interface FiltrosPublicaciones {
 
 export type OrdenPublicaciones = 'relevancia' | 'recientes';
 
+// Mismo criterio de slugificación que usa gestion-publicaciones.component.ts
+// al crear publicaciones, pero sin sufijo aleatorio -- estos deben ser
+// estables y 100% derivables del nombre, para poder resolver /villeta o
+// /villeta/restaurantes contra las listas ya cargadas de ciudades/categorías
+// sin necesitar una columna de slug en la base de datos.
+function slugificar(texto: string): string {
+  return texto
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
+
 // ID de la plataforma "WhatsApp Business" en la tabla plataformas_sociales
 const PLATAFORMA_WHATSAPP_ID = '4e35d5d5-8d91-4131-8b04-dc44b5195527';
 
@@ -260,6 +274,24 @@ export class PublicacionesService {
       const destacadaB = this.estaDestacada(b) ? 1 : 0;
       return destacadaB - destacadaA; // sort es estable: no rompe el orden dentro de cada grupo
     });
+  }
+
+  // --- Slugs de ciudad/categoría para las URLs amigables /:ciudad/:categoria ---
+
+  obtenerSlugCiudad(ciudad: Ciudad): string {
+    return slugificar(ciudad.nombre);
+  }
+
+  obtenerSlugCategoria(categoria: Categoria): string {
+    return slugificar(categoria.nombre);
+  }
+
+  buscarCiudadPorSlug(ciudades: Ciudad[], slug: string): Ciudad | undefined {
+    return ciudades.find(c => slugificar(c.nombre) === slug);
+  }
+
+  buscarCategoriaPorSlug(categorias: Categoria[], slug: string): Categoria | undefined {
+    return categorias.find(c => slugificar(c.nombre) === slug);
   }
 
   obtenerNombreCategoria(categorias: Categoria[], categoriaId: string): string {

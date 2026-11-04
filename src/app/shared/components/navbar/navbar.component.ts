@@ -1110,7 +1110,7 @@ export class NavbarComponent implements OnInit {
 
     // 3. Verificar si tiene redes sociales registradas
     const { count: countRedes } = await supabase
-      .from('empresas_redes') // O la tabla correspondiente a redes de la empresa si existe en tu esquema
+      .from('redes_sociales') // O la tabla correspondiente a redes de la empresa si existe en tu esquema
       .select('*', { count: 'exact', head: true })
       .eq('empresa_id', this.user.id)
       .maybeSingle ? { count: 0 } : { count: 0 }; // Ajuste seguro de consulta
@@ -1119,7 +1119,7 @@ export class NavbarComponent implements OnInit {
     // Nota: Si manejas las redes directamente en la tabla empresas o en otra relación, ajusta la consulta.
     // Aquí verificamos mediante una consulta genérica a la tabla relacional si aplica.
     const { data: redesData } = await supabase
-      .from('empresas_redes')
+      .from('redes_sociales')
       .select('id')
       .eq('empresa_id', this.user.id)
       .limit(1);

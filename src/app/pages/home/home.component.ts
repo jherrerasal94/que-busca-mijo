@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, inject, PLATFORM_ID } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, inject, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -18,6 +18,18 @@ import { User } from '@supabase/supabase-js';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
 export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedSocial };
+
+interface SocialSlide {
+  id: 'instagram' | 'facebook' | 'twitter' | 'tiktok';
+  name: string;
+  badge: string;
+  handle: string;
+  url: string;
+  description: string;
+  gradient: string;
+  btnBg: string;
+  iconImg: string;
+}
 
 @Component({
   selector: 'app-home',
@@ -236,49 +248,92 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
           </section>
         }
 
-        <!-- SECCIÓN DE REDES SOCIALES / INSTAGRAM DINÁMICO -->
-        <section class="social-cta-section">
-          <div class="social-cta-header">
-            <div class="social-title-wrapper">
-              <div class="social-icon-wrapper">📸</div>
-              <div>
-                <span class="social-eyebrow">¡SÍGUENOS EN LAS REDES!</span>
-                <h3 class="social-title">Únete a nuestra comunidad en Instagram</h3>
-                <p class="social-subtitle">
-                  Descubre historias de negocios locales y recomendaciones exclusivas en 
-                  <a href="https://www.instagram.com/quebuscamijo/" target="_blank" rel="noopener noreferrer" class="social-handle">&#64;quebuscamijo</a>
-                </p>
+        <!-- SECCIÓN DE REDES SOCIALES MULTIPLATAFORMA (CARRUSEL DINÁMICO) -->
+        <section 
+          class="social-carousel-section"
+          (mouseenter)="pausarCarrusel()" 
+          (mouseleave)="reanudarCarrusel()">
+
+          <!-- CONTROLES DEL CARRUSEL -->
+          <button class="carousel-control prev" (click)="anteriorSlide()" title="Anterior red">❮</button>
+          <button class="carousel-control next" (click)="siguienteSlide()" title="Siguiente red">❯</button>
+
+          <!-- DIAPOSITIVA ACTIVA -->
+          <div class="social-cta-card" [style.background]="slideActual.gradient">
+            <div class="social-cta-header">
+              <div class="social-title-wrapper">
+                <div class="social-icon-wrapper">
+                  <img [src]="slideActual.iconImg" [alt]="slideActual.name" class="social-logo-asset" />
+                </div>
+                <div>
+                  <span class="social-eyebrow">{{ slideActual.badge }}</span>
+                  <h3 class="social-title">Únete a nuestra comunidad en {{ slideActual.name }}</h3>
+                  <p class="social-subtitle">
+                    {{ slideActual.description }} 
+                    <a [href]="slideActual.url" target="_blank" rel="noopener noreferrer" class="social-handle">{{ slideActual.handle }}</a>
+                  </p>
+                </div>
               </div>
+              <a 
+                [href]="slideActual.url" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                class="btn-social-cta"
+                [style.background]="slideActual.btnBg">
+                Seguir en {{ slideActual.name }} ➔
+              </a>
             </div>
-            <a 
-              href="https://www.instagram.com/quebuscamijo/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              class="btn-instagram">
-              <span class="ig-icon">ig</span> Ver perfil completo
-            </a>
+
+            <!-- CONTENIDO ESPECÍFICO SEGÚN LA RED SELECCIONADA -->
+            @if (slideActual.id === 'instagram') {
+              <div class="instagram-grid">
+                <a href="https://www.instagram.com/quebuscamijo/" target="_blank" rel="noopener noreferrer" class="instagram-card">
+                  <div class="instagram-overlay-text">📸 Comunidad Activa</div>
+                </a>
+                <a href="https://www.instagram.com/quebuscamijo/" target="_blank" rel="noopener noreferrer" class="instagram-card">
+                  <div class="instagram-overlay-text">📍 Emprendimientos Locales</div>
+                </a>
+                <a href="https://www.instagram.com/quebuscamijo/" target="_blank" rel="noopener noreferrer" class="instagram-card">
+                  <div class="instagram-overlay-text">🍔 Gastronomía y Más</div>
+                </a>
+                <a href="https://www.instagram.com/quebuscamijo/" target="_blank" rel="noopener noreferrer" class="instagram-card">
+                  <div class="instagram-overlay-text">✨ ¡Síguenos!</div>
+                </a>
+              </div>
+            } @else {
+              <!-- VISTA EN TARJETAS PARA FACEBOOK, X Y TIKTOK -->
+              <div class="social-feature-grid">
+                <div class="social-feature-card">
+                  <span class="sf-icon">🔔</span>
+                  <h4>Novedades Diarias</h4>
+                  <p>Entérate de lanzamientos y promociones de empresas en Villeta y la región.</p>
+                </div>
+                <div class="social-feature-card">
+                  <span class="sf-icon">💬</span>
+                  <h4>Contacto Directo</h4>
+                  <p>Participa en nuestras dinámicas y comparte recomendaciones con la comunidad.</p>
+                </div>
+                <div class="social-feature-card">
+                  <span class="sf-icon">🎬</span>
+                  <h4>Contenido Exclusivo</h4>
+                  <p>Videos, entrevistas e historias destacadas de emprendedores locales.</p>
+                </div>
+              </div>
+            }
           </div>
 
-          @if (cargandoInstagram) {
-            <div class="instagram-loading">Cargando publicaciones de Instagram...</div>
-          } @else if (instagramPosts.length === 0) {
-            <div class="instagram-empty">No hay publicaciones recientes disponibles en este momento.</div>
-          } @else {
-            <div class="instagram-grid">
-              @for (post of instagramPosts.slice(0, 4); track post.id) {
-                <a [href]="post.permalink" target="_blank" rel="noopener noreferrer" class="instagram-card">
-                  @if (post.media_type === 'IMAGE' || post.media_type === 'CAROUSEL_ALBUM') {
-                    <img [src]="post.media_url" [alt]="post.caption || 'Publicación de Instagram'" class="instagram-img" />
-                  } @else if (post.media_type === 'VIDEO') {
-                    <video [src]="post.media_url" class="instagram-img"></video>
-                  }
-                  <div class="instagram-overlay">
-                    <span class="ig-overlay-icon">❤️ 💬</span>
-                  </div>
-                </a>
-              }
-            </div>
-          }
+          <!-- INDICADORES / PUNTOS DE NAVEGACIÓN -->
+          <div class="carousel-indicators">
+            @for (slide of socialSlides; track slide.id; let idx = $index) {
+              <button 
+                class="indicator-dot" 
+                [class.active]="currentSlideIndex === idx"
+                (click)="irASlide(idx)"
+                [title]="slide.name">
+                <img [src]="slide.iconImg" [alt]="slide.name" class="dot-logo-asset" />
+              </button>
+            }
+          </div>
         </section>
 
         <!-- SECCIÓN DE BENEFICIOS / FEATURES -->
@@ -1027,15 +1082,18 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       white-space: nowrap;
     }
 
-    /* SECCIÓN REDES SOCIALES / INSTAGRAM DINÁMICO */
-    .social-cta-section {
-      background: radial-gradient(circle at top right, rgba(131, 58, 180, 0.05), transparent 40%),
-                  radial-gradient(circle at bottom left, rgba(252, 175, 69, 0.05), transparent 40%), #ffffff;
-      border: 2px solid #fed7aa;
+    /* CARRUSEL MULTIREDES SOCIALES */
+    .social-carousel-section {
+      position: relative;
+      margin: 40px 0 50px;
+    }
+
+    .social-cta-card {
+      border: 2px solid #e2e8f0;
       border-radius: 24px;
       padding: 32px;
-      margin: 40px 0 50px;
       box-shadow: 0 12px 35px rgba(0, 43, 102, 0.04);
+      transition: background 0.5s ease-in-out;
     }
 
     .social-cta-header {
@@ -1057,20 +1115,34 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       width: 68px;
       height: 68px;
       flex-shrink: 0;
-      background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+      background: #ffffff;
       border-radius: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 2rem;
-      box-shadow: 0 8px 20px rgba(220, 39, 67, 0.25);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    .social-logo-asset {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .dot-logo-asset {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      display: block;
     }
 
     .social-eyebrow {
       display: inline-block;
       font-size: 0.72rem;
       font-weight: 850;
-      color: #9a3412;
+      color: #002b66;
       letter-spacing: 0.1em;
       margin-bottom: 6px;
     }
@@ -1084,13 +1156,13 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
 
     .social-subtitle {
       margin: 0;
-      color: #64748b;
+      color: #475569;
       font-size: 0.95rem;
       line-height: 1.45;
     }
 
     .social-handle {
-      color: #ea580c;
+      color: #002b66;
       font-weight: 700;
       text-decoration: none;
     }
@@ -1099,11 +1171,10 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       text-decoration: underline;
     }
 
-    .btn-instagram {
+    .btn-social-cta {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #fd1d1d, #f56040);
       color: #ffffff;
       text-decoration: none;
       padding: 14px 28px;
@@ -1111,23 +1182,70 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       font-weight: 850;
       font-size: 0.95rem;
       white-space: nowrap;
-      box-shadow: 0 8px 20px rgba(193, 53, 132, 0.25);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
       transition: transform 0.2s ease, opacity 0.2s ease;
       flex-shrink: 0;
     }
 
-    .btn-instagram:hover {
+    .btn-social-cta:hover {
       transform: translateY(-2px);
       opacity: 0.95;
     }
 
-    .ig-icon {
-      font-style: normal;
-      font-weight: 900;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 0.8rem;
+    .carousel-control {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #cbd5e1;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      color: #002b66;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transition: all 0.2s;
+    }
+
+    .carousel-control:hover {
+      background: #ffffff;
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .carousel-control.prev { left: -16px; }
+    .carousel-control.next { right: -16px; }
+
+    .carousel-indicators {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .indicator-dot {
+      background: #e2e8f0;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+      opacity: 0.6;
+    }
+
+    .indicator-dot.active {
+      background: var(--primary);
+      opacity: 1;
+      transform: scale(1.1);
+      box-shadow: 0 4px 10px rgba(0, 43, 102, 0.2);
     }
 
     .instagram-grid {
@@ -1141,7 +1259,7 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       aspect-ratio: 1;
       border-radius: 16px;
       overflow: hidden;
-      background: #0f172a;
+      background: linear-gradient(135deg, #405de6, #833ab4, #fd1d1d);
       display: block;
       box-shadow: 0 4px 12px rgba(0,0,0,0.08);
       transition: transform 0.25s ease, box-shadow 0.25s ease;
@@ -1152,44 +1270,57 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       box-shadow: 0 10px 20px rgba(0,0,0,0.15);
     }
 
-    .instagram-img {
+    .instagram-overlay-text {
+      color: #fff;
       width: 100%;
       height: 100%;
-      object-fit: cover;
-      display: block;
-      transition: transform 0.3s ease;
-    }
-
-    .instagram-card:hover .instagram-img {
-      transform: scale(1.05);
-    }
-
-    .instagram-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.3);
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0;
-      transition: opacity 0.2s ease;
-    }
-
-    .instagram-card:hover .instagram-overlay {
-      opacity: 1;
-    }
-
-    .ig-overlay-icon {
-      color: #ffffff;
-      font-weight: 800;
-      font-size: 1.1rem;
-    }
-
-    .instagram-loading, .instagram-empty {
       text-align: center;
-      color: var(--text-muted);
-      padding: 24px;
+      font-weight: 800;
       font-size: 0.95rem;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(2px);
+      transition: background 0.2s;
+    }
+
+    .instagram-card:hover .instagram-overlay-text {
+      background: rgba(0, 0, 0, 0.1);
+    }
+
+    .social-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .social-feature-card {
+      background: rgba(255, 255, 255, 0.85);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(4px);
+    }
+
+    .sf-icon {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .social-feature-card h4 {
+      margin: 0 0 6px 0;
+      color: var(--primary);
+      font-size: 1rem;
+    }
+
+    .social-feature-card p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.4;
     }
 
     /* FEATURES BOTTOM */
@@ -1473,20 +1604,23 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       .btn-cta-negocio { width: 100%; text-align: center; }
 
       .featured-section { margin-bottom: 32px; }
-      
-      .social-cta-section { padding: 24px 20px; }
+
+      .social-cta-card { padding: 24px 20px; }
       .social-cta-header {
         flex-direction: column;
         align-items: flex-start;
       }
-      .instagram-grid {
+      .instagram-grid, .social-feature-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 12px;
       }
-      .btn-instagram {
+      .btn-social-cta {
         width: 100%;
         justify-content: center;
       }
+
+      .carousel-control.prev { left: -8px; }
+      .carousel-control.next { right: -8px; }
 
       .features-section-wrapper { padding-top: 28px; }
 
@@ -1520,10 +1654,14 @@ export type { PublicacionConEmpresa, Categoria, Pais, Departamento, Ciudad, RedS
       .card { height: 380px; }
       .card-image-container { height: 190px; }
       .card:hover .card-image-container { height: 145px; }
+
+      .social-feature-grid {
+        grid-template-columns: 1fr;
+      }
     }
   `]
 })
-export class HomeComponent implements OnInit {
+export class HomeComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private likeService = inject(LikeService);
   private publicacionesService = inject(PublicacionesService);
@@ -1563,7 +1701,62 @@ export class HomeComponent implements OnInit {
 
   // Propiedades para Instagram
   instagramPosts: any[] = [];
-  cargandoInstagram = true;
+  cargandoInstagram = false;
+
+  // CONFIGURACIÓN DEL CARRUSEL DE REDES SOCIALES CON ASSETS LOCALES
+  currentSlideIndex = 0;
+  private carouselInterval: any;
+
+  readonly socialSlides: SocialSlide[] = [
+    {
+      id: 'instagram',
+      name: 'Instagram',
+      badge: '📸 INSTAGRAM COMUNIDAD',
+      handle: '@quebuscamijo',
+      url: 'https://www.instagram.com/quebuscamijo/',
+      description: 'Descubre historias de negocios locales y publicaciones en tiempo real.',
+      gradient: 'radial-gradient(circle at top right, rgba(131, 58, 180, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(252, 175, 69, 0.08), transparent 40%), #ffffff',
+      btnBg: 'linear-gradient(45deg, #405de6, #5851db, #833ab4, #c13584, #fd1d1d, #f56040)',
+      iconImg: 'assets/instagram_35x35.png'
+    },
+    {
+      id: 'facebook',
+      name: 'Facebook',
+      badge: '📘 PÁGINA OFICIAL FACEBOOK',
+      handle: 'Que Busca Mijo',
+      url: 'https://www.facebook.com/people/Quebuscamijocom/61594959613912/',
+      description: 'Únete a nuestra página oficial y entérate de ferias comerciales y novedades regionales.',
+      gradient: 'radial-gradient(circle at top right, rgba(24, 119, 242, 0.1), transparent 40%), #ffffff',
+      btnBg: '#1877f2',
+      iconImg: 'assets/facebook_35x35.png'
+    },
+    {
+      id: 'twitter',
+      name: 'X (Twitter)',
+      badge: '🐦 TENDENCIAS & ALERTAS',
+      handle: '@quebuscamijo',
+      url: 'https://x.com/quebuscamijo',
+      description: 'Sigue actualizaciones al instante, anuncios y oportunidades de negocio en tu área.',
+      gradient: 'radial-gradient(circle at top right, rgba(15, 20, 25, 0.08), transparent 40%), #ffffff',
+      btnBg: '#0f1419',
+      iconImg: 'assets/x_35x35.png'
+    },
+    {
+      id: 'tiktok',
+      name: 'TikTok',
+      badge: '🎵 VIDEOS Y REELS',
+      handle: '@quebuscamijo',
+      url: 'https://www.tiktok.com/@quebuscamijo',
+      description: 'Disfruta de contenido dinámico, tours por locales comerciales y entrevistas a emprendedores.',
+      gradient: 'radial-gradient(circle at top right, rgba(254, 44, 85, 0.08), transparent 40%), radial-gradient(circle at bottom left, rgba(37, 244, 238, 0.08), transparent 40%), #ffffff',
+      btnBg: 'linear-gradient(45deg, #000000, #fe2c55, #25f4ee)',
+      iconImg: 'assets/tiktok_35x35.png'
+    }
+  ];
+
+  get slideActual(): SocialSlide {
+    return this.socialSlides[this.currentSlideIndex];
+  }
 
   private readonly PALETA_CATEGORIAS = [
     { bg: '#fef3c7', fg: '#92400e' },
@@ -1638,31 +1831,46 @@ export class HomeComponent implements OnInit {
     await this.cargarCategorias();
     await this.cargarPublicaciones();
 
-    // Cargar posts dinámicos de Instagram
-    this.cargarInstagramFeed();
+    // Iniciar rotación automática del carrusel de redes
+    this.iniciarCarrusel();
 
     this.detectarUbicacionUsuario();
   }
 
-  cargarInstagramFeed() {
-    // Solo ejecutamos la llamada a Instagram si estamos en el navegador del cliente
-    if (!isPlatformBrowser(this.platformId)) {
-      this.cargandoInstagram = false;
-      return;
-    }
+  ngOnDestroy() {
+    this.pausarCarrusel();
+  }
 
-    this.cargandoInstagram = true;
-    this.instagramService.getInstagramFeed().subscribe({
-      next: (res) => {
-        this.instagramPosts = res?.data || [];
-        this.cargandoInstagram = false;
-      },
-      error: (err) => {
-        console.warn('Aviso: No se pudo cargar el feed de Instagram (posible token expirado o restricción CORS):', err);
-        this.instagramPosts = [];
-        this.cargandoInstagram = false;
-      }
-    });
+  // LÓGICA DE CONTROL DEL CARRUSEL DE REDES
+  iniciarCarrusel() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    this.pausarCarrusel();
+    this.carouselInterval = setInterval(() => {
+      this.siguienteSlide();
+    }, 6000);
+  }
+
+  pausarCarrusel() {
+    if (this.carouselInterval) {
+      clearInterval(this.carouselInterval);
+    }
+  }
+
+  reanudarCarrusel() {
+    this.iniciarCarrusel();
+  }
+
+  siguienteSlide() {
+    this.currentSlideIndex = (this.currentSlideIndex + 1) % this.socialSlides.length;
+  }
+
+  anteriorSlide() {
+    this.currentSlideIndex = (this.currentSlideIndex - 1 + this.socialSlides.length) % this.socialSlides.length;
+  }
+
+  irASlide(index: number) {
+    this.currentSlideIndex = index;
+    this.iniciarCarrusel();
   }
 
   async obtenerTranseunteId() {

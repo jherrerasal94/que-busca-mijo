@@ -56,6 +56,7 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/gestionar-destacados/gestionar-destacados.component').then(m => m.GestionarDestacadosComponent),
     canActivate: [AuthGuards.isAdmin]
   },
-
+  { path: ':ciudadSlug/:categoriaSlug', loadComponent: () => import('./pages/resultados/resultados.component').then(m => m.ResultadosComponent) },
+  { path: ':ciudadSlug', loadComponent: () => import('./pages/resultados/resultados.component').then(m => m.ResultadosComponent) },
   { path: '**', redirectTo: '' }                           // Redirección de fallback
 ];
