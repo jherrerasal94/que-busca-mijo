@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
 import { InstagramService } from '../../core/services/instagram.service';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import {
   PublicacionesService,
   PublicacionConEmpresa,
@@ -456,7 +457,8 @@ interface SocialSlide {
                     class="btn-whatsapp"
                     [href]="linkWhatsapp"
                     target="_blank"
-                    rel="noopener noreferrer">
+                    rel="noopener noreferrer"
+                    (click)="registrarClicWhatsapp(publicacionSeleccionada)">
                     💬 WhatsApp
                   </a>
                 }
@@ -1666,6 +1668,7 @@ export class HomeComponent implements OnInit, OnDestroy {
   private likeService = inject(LikeService);
   private publicacionesService = inject(PublicacionesService);
   private instagramService = inject(InstagramService);
+  private analyticsService = inject(AnalyticsService);
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
 
@@ -2117,6 +2120,13 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   estaDestacada(pub: PublicacionConEmpresa): boolean {
     return this.publicacionesService.estaDestacada(pub);
+  }
+
+  registrarClicWhatsapp(pub: PublicacionConEmpresa) {
+    this.analyticsService.registrarEvento('clic_whatsapp', {
+      publicacionId: pub.id,
+      empresaId: pub.empresa_id
+    });
   }
 
   abrirModal(pub: PublicacionConEmpresa) {

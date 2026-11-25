@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
 interface Plan {
@@ -413,6 +414,7 @@ interface Plan {
 })
 export class AdquirirPlanComponent implements OnInit {
   private authService = inject(AuthService);
+  private analyticsService = inject(AnalyticsService);
   private router = inject(Router);
 
   listaPlanes: Plan[] = [];
@@ -505,6 +507,13 @@ export class AdquirirPlanComponent implements OnInit {
         });
 
       if (error) throw error;
+
+      // "Conversión" en el sentido de embudo: el momento en que una empresa
+      // manifiesta intención real de pagar, antes de que el admin apruebe.
+      this.analyticsService.registrarEvento('conversion_plan', {
+        planId,
+        empresaId: this.userId
+      });
 
       this.mensajeExito = '¡Solicitud de plan registrada con éxito! Redirigiendo a tu perfil...';
 

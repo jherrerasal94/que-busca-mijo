@@ -6,6 +6,7 @@ import { DomSanitizer, SafeResourceUrl, Title, Meta } from '@angular/platform-br
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
 import { PublicacionesService, PublicacionConEmpresa, Categoria } from '../../core/services/publicaciones.service';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
 export interface RedSocial {
@@ -105,7 +106,7 @@ export interface ReviewEmpresa {
               @if (linkWhatsappEmpresa || empresa.rep_telefono) {
                 <div class="main-cta-row">
                   @if (linkWhatsappEmpresa) {
-                    <a [href]="linkWhatsappEmpresa" target="_blank" rel="noopener noreferrer" class="btn-cta-whatsapp">
+                    <a [href]="linkWhatsappEmpresa" target="_blank" rel="noopener noreferrer" class="btn-cta-whatsapp" (click)="registrarClicWhatsapp()">
                       💬 WhatsApp
                     </a>
                   }
@@ -344,7 +345,7 @@ export interface ReviewEmpresa {
                   </button>
 
                   @if (linkWhatsappEmpresa) {
-                    <a [href]="linkWhatsappEmpresa" target="_blank" rel="noopener noreferrer" class="btn-whatsapp">
+                    <a [href]="linkWhatsappEmpresa" target="_blank" rel="noopener noreferrer" class="btn-whatsapp" (click)="registrarClicWhatsapp(pubSeleccionadaModal)">
                       💬 Contactar por WhatsApp
                     </a>
                   }
@@ -574,6 +575,7 @@ export class EmpresaDetalleComponent implements OnInit, OnDestroy {
   private likeService = inject(LikeService);
   private sanitizer = inject(DomSanitizer);
   private publicacionesService = inject(PublicacionesService);
+  private analyticsService = inject(AnalyticsService);
   private titleService = inject(Title);
   private metaService = inject(Meta);
   private renderer2 = inject(Renderer2);
@@ -692,6 +694,7 @@ export class EmpresaDetalleComponent implements OnInit, OnDestroy {
       this.empresaId = this.empresa.id;
       this.actualizarMetaTags(this.empresa);
       this.actualizarJsonLd(this.empresa);
+      this.analyticsService.registrarEvento('vista_empresa', { empresaId: this.empresaId });
       await this.cargarRedesSociales();
       await this.cargarPublicacionesDeEmpresa();
       await this.cargarReviews();
@@ -769,6 +772,13 @@ export class EmpresaDetalleComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.eliminarJsonLd();
+  }
+
+  registrarClicWhatsapp(pub?: PublicacionConEmpresa | null) {
+    this.analyticsService.registrarEvento('clic_whatsapp', {
+      empresaId: this.empresaId,
+      publicacionId: pub?.id || null
+    });
   }
 
   async cargarReviews() {

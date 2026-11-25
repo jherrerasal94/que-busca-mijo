@@ -3,6 +3,7 @@ import { CommonModule, DOCUMENT } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Title, Meta } from '@angular/platform-browser';
 import { PublicacionesService, PublicacionConEmpresa } from '../../core/services/publicaciones.service';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import { FooterComponent } from '../../shared/components/footer/footer.component';
 
 @Component({
@@ -88,7 +89,7 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
 
               <div class="cta-row">
                 @if (linkWhatsapp) {
-                  <a class="btn-whatsapp" [href]="linkWhatsapp" target="_blank" rel="noopener noreferrer">
+                  <a class="btn-whatsapp" [href]="linkWhatsapp" target="_blank" rel="noopener noreferrer" (click)="registrarClicWhatsapp()">
                     💬 Contactar por WhatsApp
                   </a>
                 } @else {
@@ -379,6 +380,7 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
 export class ProductoDetalleComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private publicacionesService = inject(PublicacionesService);
+  private analyticsService = inject(AnalyticsService);
   private titleService = inject(Title);
   private metaService = inject(Meta);
   private renderer2 = inject(Renderer2);
@@ -411,6 +413,11 @@ export class ProductoDetalleComponent implements OnInit, OnDestroy {
       this.linkWhatsapp = this.publicacionesService.obtenerLinkWhatsapp(this.publicacion);
       this.actualizarMetaTags(this.publicacion);
       this.actualizarJsonLd(this.publicacion);
+      this.analyticsService.registrarEvento('vista_producto', {
+        publicacionId: this.publicacion.id,
+        slug: this.publicacion.slug,
+        empresaId: this.publicacion.empresa_id
+      });
     }
 
     this.cargando = false;
@@ -504,5 +511,13 @@ export class ProductoDetalleComponent implements OnInit, OnDestroy {
 
   toggleZoom() {
     this.isZoomed = !this.isZoomed;
+  }
+
+  registrarClicWhatsapp() {
+    if (!this.publicacion) return;
+    this.analyticsService.registrarEvento('clic_whatsapp', {
+      publicacionId: this.publicacion.id,
+      empresaId: this.publicacion.empresa_id
+    });
   }
 }

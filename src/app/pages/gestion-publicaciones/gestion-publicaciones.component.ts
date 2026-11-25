@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, FormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import { LikeService } from '../../core/services/like.service';
 
 export interface Publicacion {
@@ -441,6 +442,7 @@ export interface PlanInfo {
 export class GestionPublicacionesComponent implements OnInit {
   private fb = inject(FormBuilder);
   private authService = inject(AuthService);
+  private analyticsService = inject(AnalyticsService);
   private likeService = inject(LikeService);
 
   publicaciones: Publicacion[] = [];
@@ -818,6 +820,7 @@ export class GestionPublicacionesComponent implements OnInit {
     };
 
     let error = null;
+    const esCreacion = !this.editingId;
 
     if (this.editingId) {
       const publicacionActual = this.publicaciones.find(p => p.id === this.editingId);
@@ -844,6 +847,12 @@ export class GestionPublicacionesComponent implements OnInit {
     if (error) {
       this.errorMessage = error.message;
     } else {
+      if (esCreacion) {
+        this.analyticsService.registrarEvento('creacion_publicacion', {
+          servicioProducto: servicio_producto,
+          categoriaId: categoria_id || null
+        });
+      }
       this.cancelarEdicion();
       await this.cargarPublicaciones();
     }

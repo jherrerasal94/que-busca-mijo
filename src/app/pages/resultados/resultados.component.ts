@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, combineLatest } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { LikeService } from '../../core/services/like.service';
+import { AnalyticsService } from '../../core/services/analytics.service';
 import {
   PublicacionesService,
   PublicacionConEmpresa,
@@ -227,7 +228,7 @@ import { FooterComponent } from '../../shared/components/footer/footer.component
                   </a>
                 }
                 @if (obtenerLinkWhatsapp(publicacionSeleccionada); as linkWhatsapp) {
-                  <a class="btn-whatsapp" [href]="linkWhatsapp" target="_blank" rel="noopener noreferrer">
+                  <a class="btn-whatsapp" [href]="linkWhatsapp" target="_blank" rel="noopener noreferrer" (click)="registrarClicWhatsapp(publicacionSeleccionada)">
                     💬 WhatsApp
                   </a>
                 }
@@ -691,6 +692,7 @@ export class ResultadosComponent implements OnInit, OnDestroy {
   private authService = inject(AuthService);
   private likeService = inject(LikeService);
   private publicacionesService = inject(PublicacionesService);
+  private analyticsService = inject(AnalyticsService);
 
   private queryParamsSub?: Subscription;
 
@@ -882,6 +884,22 @@ export class ResultadosComponent implements OnInit, OnDestroy {
 
     this.publicacionesOrdenadas = this.publicacionesService.ordenar(filtradas, this.orden, this.searchQuery);
     this.actualizarMetaTags();
+
+    if (this.searchQuery || this.categoriaSeleccionadaId || this.filtroCiudadId) {
+      this.analyticsService.registrarEvento('busqueda', {
+        query: this.searchQuery || null,
+        categoriaId: this.categoriaSeleccionadaId || null,
+        ciudadId: this.filtroCiudadId || null,
+        resultados: this.publicacionesOrdenadas.length
+      });
+    }
+  }
+
+  registrarClicWhatsapp(pub: PublicacionConEmpresa) {
+    this.analyticsService.registrarEvento('clic_whatsapp', {
+      publicacionId: pub.id,
+      empresaId: pub.empresa_id
+    });
   }
 
   // Se recalcula en cada cambio de filtro (recalcularResultados corre en
