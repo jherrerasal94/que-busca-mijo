@@ -255,6 +255,15 @@ export interface NotificacionItem {
                       <span class="item-icon">⭐</span>
                       <span>Solicitudes de Destacados</span>
                     </a>
+
+                    <a routerLink="/admin-analytics"
+                       routerLinkActive="active-item"
+                       class="dropdown-item admin-item"
+                       (click)="cerrarTodo()">
+                      <span class="item-icon">📊</span>
+                      <span>Analytics</span>
+                    </a>
+
                     <a routerLink="/admin/empresas"
                        routerLinkActive="active-item"
                        class="dropdown-item admin-item"
